@@ -1,6 +1,10 @@
 /**
  * 粒子系统
  * 水墨爆炸、金粉、金珠、流光拖尾、珍珠气泡等粒子效果
+ * v2 升级：
+ *  - 软粒子：所有粒子使用径向渐变，中心实、边缘透明，消除硬边
+ *  - 粒子光照：非自发光粒子顶部亮、底部暗（方向光来自水面），自发光粒子不受影响
+ *  - 新增 4 种粒子：scaleSpark(鱼鳞闪光) / waterFlow(水流微光) / gillBubble(鱼鳃气泡) / hitFlash(受击白闪)
  */
 import { Utils } from '../core/Utils.js';
 import { GameConfig } from '../config/gameConfig.js';
@@ -29,6 +33,12 @@ export class Particle {
         this.type = 'normal';
         this.rotation = 0;
         this.rotationSpeed = 0;
+        // v2：自发光标志（true 时不受顶部方向光影响，保持自发光；gold/coin/flame 为 true）
+        this.isEmissive = false;
+        // v2：左右摇摆（鱼鳃气泡等上升气泡用），0 为不摇摆
+        this.swayAmplitude = 0;
+        this.swayFrequency = 0;
+        this._swayT = 0;
         this._active = false;
     }
 
@@ -53,12 +63,30 @@ export class Particle {
         this.vy *= this.friction;
         this.x += this.vx * dt;
         this.y += this.vy * dt;
+
+        // 鱼鳃气泡：左右摇摆上升
+        if (this.swayAmplitude > 0) {
+            this._swayT += dt;
+            this.x += Math.sin(this._swayT * this.swayFrequency) * this.swayAmplitude * dt;
+        }
+
         this.size += this.sizeSpeed * dt;
         this.rotation += this.rotationSpeed * dt;
 
         // 透明度随生命周期衰减
         const lifeRatio = this.life / this.maxLife;
         this.alpha = lifeRatio;
+    }
+
+    /**
+     * 颜色按亮度系数微调（用于粒子顶部光照）
+     */
+    _shade(hex, factor) {
+        const c = Utils.hexToRgb(hex);
+        const r = Math.min(255, Math.round(c.r * factor));
+        const g = Math.min(255, Math.round(c.g * factor));
+        const b = Math.min(255, Math.round(c.b * factor));
+        return `rgb(${r}, ${g}, ${b})`;
     }
 
     render(ctx) {
@@ -92,6 +120,18 @@ export class Particle {
             case 'spark':
                 this._renderSpark(ctx);
                 break;
+            case 'scaleSpark':
+                this._renderScaleSpark(ctx);
+                break;
+            case 'waterFlow':
+                this._renderWaterFlow(ctx);
+                break;
+            case 'gillBubble':
+                this._renderGillBubble(ctx);
+                break;
+            case 'hitFlash':
+                this._renderHitFlash(ctx);
+                break;
             default:
                 this._renderDefault(ctx);
         }
@@ -99,9 +139,18 @@ export class Particle {
         ctx.restore();
     }
 
+    /**
+     * 默认软粒子：径向渐变，中心实边缘透明
+     * 非自发光粒子受顶部方向光影响：亮点上移、顶部提亮、底部压暗
+     * （环境光 0.3 + 漫反射 0.7：顶部亮度 1.0，底部亮度 ~0.45）
+     */
+    _litHotY() { return this.isEmissive ? 0 : -this.size * 0.3; }
+
     _renderDefault(ctx) {
-        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
-        gradient.addColorStop(0, this.color);
+        const hotY = this._litHotY();
+        const gradient = ctx.createRadialGradient(0, hotY, 0, 0, 0, this.size);
+        gradient.addColorStop(0, this.isEmissive ? this.color : this._shade(this.color, this._litShadeTop()));
+        gradient.addColorStop(0.6, this.isEmissive ? this.color : this._shade(this.color, 0.75));
         gradient.addColorStop(1, Utils.rgba(this.color, 0));
         ctx.fillStyle = gradient;
         ctx.beginPath();
@@ -110,8 +159,12 @@ export class Particle {
     }
 
     _renderInk(ctx) {
-        // 水墨粒子：不规则墨滴
-        ctx.fillStyle = Utils.rgba('#0A0A1A', this.alpha * 0.7);
+        // 水墨粒子：不规则墨滴（软边径向渐变，消除硬边）
+        const inkGrad = ctx.createRadialGradient(0, -this.size * 0.2, 0, 0, 0, this.size);
+        inkGrad.addColorStop(0, `rgba(10, 10, 26, ${this.alpha * 0.8})`);
+        inkGrad.addColorStop(0.7, `rgba(10, 10, 26, ${this.alpha * 0.5})`);
+        inkGrad.addColorStop(1, 'rgba(10, 10, 26, 0)');
+        ctx.fillStyle = inkGrad;
         ctx.beginPath();
         const points = 6;
         for (let i = 0; i <= points; i++) {
@@ -127,7 +180,7 @@ export class Particle {
     }
 
     _renderGold(ctx) {
-        // 金粉粒子：发光金色圆点
+        // 金粉粒子：发光金色圆点（自发光，不受光照影响）
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 1.5);
         gradient.addColorStop(0, '#FFFFFF');
         gradient.addColorStop(0.3, '#FFD700');
@@ -139,7 +192,7 @@ export class Particle {
     }
 
     _renderCoin(ctx) {
-        // 金珠：旋转的金币
+        // 金珠：旋转的金币（自发光）
         const scaleX = Math.cos(this.life * 8);
         ctx.scale(scaleX, 1);
         const gradient = ctx.createRadialGradient(-this.size * 0.3, -this.size * 0.3, 0, 0, 0, this.size);
@@ -156,10 +209,13 @@ export class Particle {
     }
 
     _renderTrail(ctx) {
-        // 流光拖尾：拉长的光带
+        // 流光拖尾：拉长的光带（顶部受光，上部更亮）
+        const topC = this.isEmissive ? this.color : this._shade(this.color, 1.0);
+        const botC = this.isEmissive ? this.color : this._shade(this.color, 0.5);
         const gradient = ctx.createLinearGradient(-this.size * 2, 0, this.size, 0);
         gradient.addColorStop(0, Utils.rgba(this.color, 0));
-        gradient.addColorStop(1, this.color);
+        gradient.addColorStop(0.5, topC);
+        gradient.addColorStop(1, botC);
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.ellipse(0, 0, this.size * 2, this.size * 0.5, 0, 0, Math.PI * 2);
@@ -184,7 +240,7 @@ export class Particle {
     }
 
     _renderFlame(ctx) {
-        // 暴击烈焰：红金色火焰
+        // 暴击烈焰：红金色火焰（自发光）
         const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 2);
         gradient.addColorStop(0, '#FFFFFF');
         gradient.addColorStop(0.2, '#FFD700');
@@ -211,6 +267,61 @@ export class Particle {
         ctx.arc(0, 0, this.size * 0.3, 0, Math.PI * 2);
         ctx.fill();
     }
+
+    /**
+     * 鱼鳞闪光：鱼游动时偶尔闪烁的小亮点（自发光白/金）
+     */
+    _renderScaleSpark(ctx) {
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+        gradient.addColorStop(0, '#FFFFFF');
+        gradient.addColorStop(0.4, this.color);
+        gradient.addColorStop(1, Utils.rgba(this.color, 0));
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    /**
+     * 水流粒子：背景层缓慢漂浮的微光颗粒（淡蓝，受顶光影响）
+     */
+    _renderWaterFlow(ctx) {
+        const gradient = ctx.createRadialGradient(0, -this.size * 0.3, 0, 0, 0, this.size);
+        gradient.addColorStop(0, this._shade(this.color, 1.0));
+        gradient.addColorStop(1, Utils.rgba(this.color, 0));
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    /**
+     * 鱼鳃气泡：鱼呼吸时吐出的小气泡，半透明、上升摇摆
+     */
+    _renderGillBubble(ctx) {
+        const gradient = ctx.createRadialGradient(-this.size * 0.3, -this.size * 0.3, 0, 0, 0, this.size);
+        gradient.addColorStop(0, Utils.rgba('#FFFFFF', 0.5));
+        gradient.addColorStop(0.6, Utils.rgba('#BEE8FF', 0.18));
+        gradient.addColorStop(1, Utils.rgba('#BEE8FF', 0.02));
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    /**
+     * 受击白闪：命中时纯白径向闪光，快速放大消失（自发光）
+     */
+    _renderHitFlash(ctx) {
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size);
+        gradient.addColorStop(0, '#FFFFFF');
+        gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.6)');
+        gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
 }
 
 export class ParticleSystem {
@@ -218,6 +329,8 @@ export class ParticleSystem {
         this._particles = [];
         this._maxParticles = maxParticles;
         this._bubbleTimer = 0;
+        // v2：水流粒子生成计时
+        this._waterFlowTimer = 0;
     }
 
     /**
@@ -233,6 +346,7 @@ export class ParticleSystem {
                 : Utils.random(0, Math.PI * 2);
             const speed = Utils.random(config.speedMin || 50, config.speedMax || 200);
 
+            const type = config.type || 'normal';
             const p = new Particle();
             p.init({
                 x: x + Utils.random(-5, 5),
@@ -246,7 +360,9 @@ export class ParticleSystem {
                 gravity: config.gravity || 0,
                 friction: config.friction || 0.95,
                 blendMode: config.blendMode || 'lighter',
-                type: config.type || 'normal',
+                type,
+                // gold / coin / flame 类为自发光粒子，不受顶光影响
+                isEmissive: config.isEmissive === true || ['gold', 'coin', 'flame'].includes(type),
                 rotationSpeed: Utils.random(-3, 3)
             });
             this._particles.push(p);
@@ -254,7 +370,7 @@ export class ParticleSystem {
     }
 
     /**
-     * 拖尾粒子
+     * 拖尾粒子（size 5-15px 软粒子）
      */
     trail(x, y, config) {
         if (this._particles.length >= this._maxParticles) return;
@@ -264,12 +380,13 @@ export class ParticleSystem {
             vx: Utils.random(-10, 10),
             vy: Utils.random(-10, 10),
             maxLife: config.life || 0.3,
-            size: config.size || 4,
+            size: Utils.random(config.size || 5, (config.size || 5) + 10),
             sizeSpeed: -8,
             color: config.color || '#36E0E8',
             friction: 0.9,
             blendMode: 'lighter',
-            type: config.type || 'trail'
+            type: config.type || 'trail',
+            isEmissive: config.isEmissive === true
         });
         this._particles.push(p);
     }
@@ -309,10 +426,10 @@ export class ParticleSystem {
     }
 
     /**
-     * 暴击爆炸特效
+     * 暴击爆炸特效（爆炸粒子放大到 20-50px）
      */
     critExplosion(x, y) {
-        // 金色龙焰冲击波
+        // 金色龙焰冲击波（爆炸粒子 20-50px）
         this.burst(x, y, {
             count: 40,
             type: 'flame',
@@ -320,8 +437,8 @@ export class ParticleSystem {
             speedMax: 400,
             lifeMin: 0.6,
             lifeMax: 1.5,
-            sizeMin: 5,
-            sizeMax: 15,
+            sizeMin: 10,
+            sizeMax: 25,
             gravity: -50,
             friction: 0.94
         });
@@ -363,6 +480,103 @@ export class ParticleSystem {
         this._particles.push(p);
     }
 
+    /**
+     * v2：鱼鳞闪光（鱼游动时偶尔闪烁的小亮点，白色/金色）
+     */
+    emitScaleSpark(x, y, color = '#FFFFFF') {
+        if (this._particles.length >= this._maxParticles) return;
+        const p = new Particle();
+        p.init({
+            x: x + Utils.random(-3, 3),
+            y: y + Utils.random(-3, 3),
+            vx: Utils.random(-20, 20),
+            vy: Utils.random(-30, -5),
+            maxLife: Utils.random(0.3, 0.5),
+            size: Utils.random(2, 4),
+            sizeSpeed: -6,
+            color,
+            gravity: 0,
+            friction: 0.95,
+            blendMode: 'lighter',
+            type: 'scaleSpark',
+            isEmissive: true
+        });
+        this._particles.push(p);
+    }
+
+    /**
+     * v2：水流粒子（背景层缓慢漂浮的微光颗粒，淡蓝色）
+     */
+    emitWaterFlow(canvasWidth, canvasHeight) {
+        if (this._particles.length >= this._maxParticles) return;
+        const p = new Particle();
+        p.init({
+            x: Utils.random(0, canvasWidth),
+            y: canvasHeight + Utils.random(0, 50),
+            vx: Utils.random(-8, 8),
+            vy: Utils.random(-15, -5),
+            maxLife: Utils.random(5, 10),
+            size: Utils.random(1, 3),
+            sizeSpeed: 0,
+            color: '#88CCFF',
+            gravity: 0,
+            friction: 0.995,
+            blendMode: 'lighter',
+            type: 'waterFlow',
+            isEmissive: false
+        });
+        this._particles.push(p);
+    }
+
+    /**
+     * v2：鱼鳃气泡（鱼呼吸时吐出的小气泡，上升左右摇摆）
+     */
+    emitGillBubble(x, y) {
+        if (this._particles.length >= this._maxParticles) return;
+        const p = new Particle();
+        p.init({
+            x: x + Utils.random(-4, 4),
+            y: y + Utils.random(-4, 4),
+            vx: Utils.random(-10, 10),
+            vy: Utils.random(-30, -60),
+            maxLife: Utils.random(1.5, 3),
+            size: Utils.random(3, 8),
+            sizeSpeed: 0.5,
+            color: '#BEE8FF',
+            gravity: -5, // 微上浮
+            friction: 0.99,
+            swayAmplitude: 20,
+            swayFrequency: Utils.random(2, 4),
+            blendMode: 'lighter',
+            type: 'gillBubble',
+            isEmissive: false
+        });
+        this._particles.push(p);
+    }
+
+    /**
+     * v2：受击白闪（命中时白色闪光，快速放大消失）
+     */
+    emitHitFlash(x, y) {
+        if (this._particles.length >= this._maxParticles) return;
+        const p = new Particle();
+        p.init({
+            x, y,
+            vx: 0,
+            vy: 0,
+            maxLife: Utils.random(0.15, 0.3),
+            size: Utils.random(15, 30),
+            sizeSpeed: 120, // 快速放大
+            color: '#FFFFFF',
+            gravity: 0,
+            friction: 1,
+            blendMode: 'lighter',
+            type: 'hitFlash',
+            isEmissive: true
+        });
+        this._particles.push(p);
+    }
+
     update(dt, canvasWidth, canvasHeight) {
         // 气泡生成
         this._bubbleTimer += dt;
@@ -370,6 +584,15 @@ export class ParticleSystem {
             this._bubbleTimer = 0;
             if (this._countByType('bubble') < GameConfig.particles.bubbleMaxCount) {
                 this.spawnBubble(canvasWidth, canvasHeight);
+            }
+        }
+
+        // v2：水流微光粒子定时生成（数量受控，不挤占对象池）
+        this._waterFlowTimer += dt;
+        if (this._waterFlowTimer >= 0.15) {
+            this._waterFlowTimer = 0;
+            if (this._countByType('waterFlow') < 60) {
+                this.emitWaterFlow(canvasWidth, canvasHeight);
             }
         }
 

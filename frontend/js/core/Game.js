@@ -1437,6 +1437,17 @@ export class Game {
             this.fishManager.setFrozen(false);
         }
 
+        // 鱼鳃气泡（v2新增：随机鱼呼吸吐出小气泡）
+        this._gillBubbleTimer = (this._gillBubbleTimer || 0) + dt;
+        if (this._gillBubbleTimer > 0.6) {
+            this._gillBubbleTimer = 0;
+            const aliveFishes = this.fishManager.getAllAliveFish();
+            if (aliveFishes.length > 0) {
+                const fish = aliveFishes[Math.floor(Math.random() * aliveFishes.length)];
+                this.particleSystem.emitGillBubble(fish.x, fish.y);
+            }
+        }
+
         // 任务徽章
         this.bottomBar.setTaskBadge(this.taskSystem.getClaimableCount() > 0);
     }
@@ -1468,6 +1479,9 @@ export class Game {
             sizeMin: 2,
             sizeMax: 5
         });
+
+        // 受击白闪（v2新增粒子类型）
+        this.particleSystem.emitHitFlash(bullet.x, bullet.y);
 
         // 屏幕震动
         const shakeConfig = GameConfig.screenShake;
@@ -1599,19 +1613,24 @@ export class Game {
 
         const dayPhase = this.scene.dayPhase;
 
-        // 背景层
+        // ===== 5层视差渲染 =====
+
+        // 第1层：远景层（最远，视差0.05）+ 背景层（视差0.15）
         const bgCtx = this.renderer.getCtx('bg');
+        this.scene.renderFarBackground(bgCtx, this.renderer.camera);
         this.scene.renderBackground(bgCtx, this.renderer.camera);
         this.volumetricFog.render(bgCtx, dayPhase);
 
-        // 中景层
+        // 第2层：中景层（视差0.35）
         const midCtx = this.renderer.getCtx('mid');
         this.scene.renderMidground(midCtx, this.renderer.camera);
         this.scene.renderLights(midCtx, this.renderer.camera);
 
-        // 游戏层
+        // 第3层：游戏层（视差1.0）
         const gameCtx = this.renderer.getCtx('game');
         this.renderer.camera.applyTransform(gameCtx, 1);
+        // 前景装饰（视差0.6，在鱼后面）
+        this.scene.renderForeground(gameCtx, this.renderer.camera);
         this.fishManager.render(gameCtx);
         this.bulletManager.render(gameCtx);
         this.coinManager.render(gameCtx);
@@ -1619,7 +1638,14 @@ export class Game {
         this.petSystem.render(gameCtx);
         this.aiBotManager.render(gameCtx);
 
-        // 特效层
+        // 第4层：发光采集层（Bloom后处理用）
+        const glowCtx = this.renderer.getCtx('glow');
+        if (glowCtx) {
+            this.renderer.camera.applyTransform(glowCtx, 1);
+            this._renderGlowLayer(glowCtx);
+        }
+
+        // 第5层：特效层
         const fxCtx = this.renderer.getCtx('fx');
         this.renderer.camera.applyTransform(fxCtx, 1);
         this.particleSystem.render(fxCtx);
@@ -1633,10 +1659,38 @@ export class Game {
         this._renderSkillEffects(fxCtx);
         fxCtx.restore();
 
-        // 前景层（在 game 层之上）
-        this.scene.renderForeground(gameCtx, this.renderer.camera);
+        // 近景层（最近，视差0.9，在最前面）
+        this.scene.renderNearForeground(gameCtx, this.renderer.camera);
 
         this.renderer.endFrame();
+    }
+
+    /**
+     * 渲染发光采集层（供Bloom后处理使用）
+     * 发光鱼、金币、炮弹等自发光物体用纯色绘制到此层
+     */
+    _renderGlowLayer(ctx) {
+        // 发光鱼
+        const fishes = this.fishManager.getAllAliveFish();
+        for (const fish of fishes) {
+            if (fish.config && fish.config.glow) {
+                const glowColor = fish.config.glowColor || fish.config.lureColor || fish.config.accentColor || '#FFFFFF';
+                ctx.fillStyle = glowColor;
+                ctx.beginPath();
+                ctx.arc(fish.x, fish.y, fish.size * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // 金币发光
+        for (const coin of this.coinManager.coins || []) {
+            if (coin._active) {
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, (coin._size || 8) * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
     }
 
     /**

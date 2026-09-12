@@ -13,6 +13,9 @@ export const FishConfig = {
             speed: 120,
             size: 36,
             boneSegments: 5,
+            spineSegments: 8,               // 脊椎骨骼节数（升级后最小8节）
+            fresnelIntensity: 0.12,         // 菲涅尔反射 F0
+            scaleType: 'cycloid',            // 鳞片类型 cycloid/ctenoid/ganoid/dragon
             spawnWeight: 30,
             color: '#FF8C42',
             accentColor: '#FFD700',
@@ -30,6 +33,9 @@ export const FishConfig = {
             speed: 180,
             size: 28,
             boneSegments: 4,
+            spineSegments: 8,
+            fresnelIntensity: 0.10,
+            scaleType: 'cycloid',
             spawnWeight: 30,
             color: '#C0D8E8',
             accentColor: '#E8F4FF',
@@ -47,6 +53,9 @@ export const FishConfig = {
             speed: 60,
             size: 56,
             boneSegments: 6,
+            spineSegments: 9,
+            fresnelIntensity: 0.15,
+            scaleType: 'ganoid',
             spawnWeight: 15,
             color: '#2D8B5E',
             accentColor: '#4ADE80',
@@ -63,6 +72,9 @@ export const FishConfig = {
             speed: 100,
             size: 72,
             boneSegments: 6,
+            spineSegments: 10,
+            fresnelIntensity: 0.12,
+            scaleType: 'ctenoid',
             spawnWeight: 12,
             color: '#4A5568',
             accentColor: '#718096',
@@ -79,6 +91,9 @@ export const FishConfig = {
             speed: 40,
             size: 48,
             boneSegments: 4,
+            spineSegments: 8,
+            fresnelIntensity: 0.08,
+            scaleType: 'cycloid',
             spawnWeight: 14,
             color: '#FF69B4',
             accentColor: '#FFB6C1',
@@ -97,6 +112,9 @@ export const FishConfig = {
             speed: 90,
             size: 32,
             boneSegments: 5,
+            spineSegments: 8,
+            fresnelIntensity: 0.10,
+            scaleType: 'ctenoid',
             spawnWeight: 18,
             color: '#FF8C00',
             accentColor: '#FFD700',
@@ -114,6 +132,9 @@ export const FishConfig = {
             speed: 55,
             size: 64,
             boneSegments: 5,
+            spineSegments: 10,
+            fresnelIntensity: 0.15,
+            scaleType: 'ctenoid',
             spawnWeight: 8,
             color: '#2C1810',
             accentColor: '#8B4513',
@@ -132,6 +153,9 @@ export const FishConfig = {
             speed: 90,
             size: 90,
             boneSegments: 8,
+            spineSegments: 11,
+            fresnelIntensity: 0.20,
+            scaleType: 'dragon',
             spawnWeight: 8,
             color: '#1A1A2E',
             accentColor: '#6B5B95',
@@ -148,6 +172,9 @@ export const FishConfig = {
             speed: 70,
             size: 100,
             boneSegments: 8,
+            spineSegments: 12,
+            fresnelIntensity: 0.30,        // 金龙鱼强菲涅尔 F0=0.3
+            scaleType: 'dragon',
             spawnWeight: 4,
             color: '#DAA520',
             accentColor: '#FFD700',
@@ -164,6 +191,9 @@ export const FishConfig = {
             speed: 50,
             size: 160,
             boneSegments: 12,
+            spineSegments: 12,
+            fresnelIntensity: 0.30,
+            scaleType: 'dragon',
             spawnWeight: 1,
             color: '#1E3A5F',
             accentColor: '#FFD700',
@@ -184,6 +214,9 @@ export const FishConfig = {
             speed: 100,
             size: 55,
             boneSegments: 8,
+            spineSegments: 10,
+            fresnelIntensity: 0.12,
+            scaleType: 'ctenoid',
             spawnWeight: 6,
             color: '#4A0080',
             accentColor: '#00FFFF',
@@ -203,6 +236,9 @@ export const FishConfig = {
             speed: 90,
             size: 48,
             boneSegments: 6,
+            spineSegments: 9,
+            fresnelIntensity: 0.08,
+            scaleType: 'cycloid',
             spawnWeight: 5,
             color: '#E8E8FF',
             accentColor: '#B8B8FF',
@@ -222,6 +258,9 @@ export const FishConfig = {
             speed: 70,
             size: 50,
             boneSegments: 4,
+            spineSegments: 8,
+            fresnelIntensity: 0.10,
+            scaleType: 'cycloid',
             spawnWeight: 7,
             color: '#FF69B4',
             accentColor: '#FFB6C1',
@@ -283,6 +322,44 @@ export const FishConfig = {
         tailAmplitude: 0.4,                 // 尾鳍扇动幅度
         finFrequency: 4,                    // 胸鳍扇动频率
         finAmplitude: 0.3,                  // 胸鳍扇动幅度
-        speedInfluence: 0.5                 // 速度对动画频率的影响
+        speedInfluence: 0.5,                // 速度对动画频率的影响
+        // 脊椎分段摆动幅度权重：头/躯干/尾
+        headAmpScale: 0.3,                  // 头部摆动幅度系数
+        tailAmpScale: 1.5                   // 尾部摆动幅度系数
+    },
+
+    // ===== 动画状态机（7 种状态）=====
+    // freq/amp 为相对 boneAnimation 的倍率；bendMult 为身体弯曲度倍率
+    animStates: {
+        idle:   { freq: 0.5, bodyAmp: 0.6, tailFreq: 0.5, tailAmp: 0.5, finFreq: 0.4, finAmp: 0.6, bendMult: 0.7 },
+        swim:   { freq: 1.0, bodyAmp: 1.0, tailFreq: 1.0, tailAmp: 1.0, finFreq: 1.0, finAmp: 1.0, bendMult: 1.0 },
+        fast:   { freq: 1.5, bodyAmp: 1.2, tailFreq: 1.8, tailAmp: 1.5, finFreq: 1.4, finAmp: 1.2, bendMult: 1.5 },
+        turn:   { freq: 1.0, bodyAmp: 1.3, tailFreq: 1.2, tailAmp: 1.2, finFreq: 1.6, finAmp: 1.4, bendMult: 1.4 },
+        escape: { freq: 2.0, bodyAmp: 1.6, tailFreq: 2.5, tailAmp: 1.8, finFreq: 2.0, finAmp: 1.5, bendMult: 1.6 },
+        hurt:   { freq: 3.0, bodyAmp: 0.3, tailFreq: 3.0, tailAmp: 0.3, finFreq: 2.0, finAmp: 0.5, bendMult: 0.5 },
+        dying:  { freq: 0.3, bodyAmp: 0.2, tailFreq: 0.4, tailAmp: 0.2, finFreq: 0.3, finAmp: 0.2, bendMult: 0.5 }
+    },
+
+    // ===== 状态切换阈值 =====
+    stateRules: {
+        fastSpeedRatio: 1.3,                // 速度 > baseSpeed*1.3 → fast
+        idleSpeedRatio: 0.5,                // 速度 < baseSpeed*0.5 → idle
+        turnRadPerSec: 6.0,                 // 方向变化速率 > 此值(rad/s) → turn
+        hurtDuration: 0.3                    // 受击僵直时长（秒）
+    },
+
+    // ===== 鱼鳍 Verlet 物理参数 =====
+    physics: {
+        damping: 0.85,                      // 阻尼（水阻力）
+        iterations: 3,                      // 约束求解迭代次数
+        bodyStiffness: 0.9,                 // 鱼身刚度
+        finStiffness: 0.3,                  // 鱼鳍刚度（柔性）
+        headMass: 1.5,                      // 鱼头质量（重）
+        tailMass: 0.5,                      // 鱼尾质量（轻）
+        pectoralNodes: 3,                   // 每侧胸鳍边缘节点数
+        dorsalNodes: 6,                     // 背鳍边缘节点数
+        tailLobeNodes: 4,                   // 尾鳍每叶边缘节点数
+        waterForceX: 0.6,                   // 沿游向反向的水流阻力
+        turbulenceY: 1.2                    // 垂直水流扰动幅度
     }
 };

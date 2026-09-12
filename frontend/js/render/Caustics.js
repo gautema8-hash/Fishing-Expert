@@ -1,6 +1,7 @@
 /**
  * 水面焦散光影
  * 阳光穿透水面，在水下场景投射动态晃动的水波纹焦散光斑
+ * v2：焦散颜色/强度随昼夜平滑切换（白昼蓝白 / 黄昏金红 / 深夜幽蓝）
  */
 import { Utils } from '../core/Utils.js';
 
@@ -64,6 +65,7 @@ export class Caustics {
         ctx.globalCompositeOperation = 'lighter';
 
         // 根据昼夜调整强度和颜色
+        // 白昼蓝白(220,240,255) / 黄昏金红(255,200,150) / 深夜幽蓝(100,150,200)
         let intensity = this._intensity;
         let color = { r: 200, g: 240, b: 255 };
 
@@ -126,8 +128,12 @@ export class Caustics {
 }
 
 /**
- * 体积雾效果
- * 深海远处雾气渐浓，近处通透，光影穿透雾层形成光束
+ * 体积雾效果（v2 增强版）
+ *  - 屏幕空间径向光束：3-5 束从水面顶部向下投射，位置缓慢漂移
+ *  - 光束横向中心亮、边缘透明（软边），内部叠加正弦条纹模拟水中微粒
+ *  - 昼夜强度：白昼 0.15 / 黄昏 0.12 / 深夜 0.05
+ *  - 深度雾：getFogParams(y, size) 按鱼的水深与大小计算雾浓度/蓝染色
+ *  - 雾层水平缓慢流动（正弦偏移）
  */
 export class VolumetricFog {
     constructor(width, height) {
@@ -138,25 +144,28 @@ export class VolumetricFog {
         this._enabled = true;
         this._lightBeams = [];
         this._fogLayers = [];
+        // 当前昼夜阶段缓存（供 getFogParams 使用）
+        this._currentDayPhase = 0;
         this._initFogLayers();
         this._initLightBeams();
     }
 
     _initFogLayers() {
-        // 多层雾，不同密度和移动速度
+        // 多层雾，不同密度和移动速度，随水流缓慢水平流动
         for (let i = 0; i < 4; i++) {
             this._fogLayers.push({
                 y: this.height * (0.3 + i * 0.2),
                 height: this.height * 0.4,
                 speed: 5 + i * 3,
                 offset: Math.random() * 1000,
-                density: 0.1 + i * 0.08
+                density: 0.1 + i * 0.08,
+                flowPhase: Math.random() * Math.PI * 2
             });
         }
     }
 
     _initLightBeams() {
-        // 丁达尔光束
+        // 丁达尔光束 5 束，位置随机、宽度上窄下宽、缓慢漂移
         for (let i = 0; i < 5; i++) {
             this._lightBeams.push({
                 x: this.width * (0.1 + i * 0.2),
@@ -164,7 +173,7 @@ export class VolumetricFog {
                 angle: -0.1 + Math.random() * 0.2,
                 speed: 0.2 + Math.random() * 0.3,
                 offset: Math.random() * 100,
-                intensity: 0.3 + Math.random() * 0.3
+                intensity: 0.10 + Math.random() * 0.08 // 基础强度 ~0.15（白昼）
             });
         }
     }
@@ -173,30 +182,59 @@ export class VolumetricFog {
         this._time += dt;
     }
 
+    /**
+     * 根据鱼的水深(y)与大小(远近)计算雾参数
+     * @param {number} y    鱼的屏幕 y 坐标（0=水面顶部，height=海底）
+     * @param {number} size 鱼体半径（像素），越小表示越远
+     * @returns {{fogAmount:number, alpha:number, tint:{r:number,g:number,b:number}, tintStrength:number}}
+     *   fogAmount   雾浓度 0(近/浅) ~ 1(远/深)
+     *   alpha       鱼应使用的整体透明度（远处更透明）
+     *   tint        深海蓝雾色 (5,25,50)
+     *   tintStrength 蓝染色强度（叠加在鱼身上的程度）
+     */
+    getFogParams(y, size = 30) {
+        const depthT = Utils.clamp(y / this.height, 0, 1); // 0浅水 1深水
+        const distT = Utils.clamp(1 - size / 60, 0, 1);     // 0近 1远
+        const fogAmount = Utils.clamp(depthT * 0.55 + distT * 0.45, 0, 1);
+        return {
+            fogAmount,
+            alpha: 1 - fogAmount * 0.45,      // 远处/深水鱼透明度降低
+            tint: { r: 5, g: 25, b: 50 },     // 深海蓝
+            tintStrength: fogAmount * 0.65    // 远处鱼偏蓝、对比度低
+        };
+    }
+
     render(ctx, dayPhase = 0) {
         if (!this._enabled) return;
+        this._currentDayPhase = dayPhase;
 
         ctx.save();
 
         // 根据昼夜调整雾色和密度
-        let fogColor, beamColor, densityMult;
+        // 雾色：白昼(100,160,200) / 黄昏(120,80,100) / 深夜(20,40,70)
+        // 体积光：白昼(200,230,255) / 黄昏(255,180,120) / 深夜(80,120,180)
+        let fogColor, beamColor, densityMult, beamAlphaScale;
         if (dayPhase < 0.33) {
             fogColor = { r: 100, g: 160, b: 200 };
             beamColor = { r: 200, g: 230, b: 255 };
             densityMult = 0.6;
+            beamAlphaScale = 1.0;  // 白昼光束强 ~0.15
         } else if (dayPhase < 0.66) {
             fogColor = { r: 120, g: 80, b: 100 };
             beamColor = { r: 255, g: 180, b: 120 };
             densityMult = 0.9;
+            beamAlphaScale = 0.8;  // 黄昏暖光 ~0.12
         } else {
             fogColor = { r: 20, g: 40, b: 70 };
             beamColor = { r: 80, g: 120, b: 180 };
             densityMult = 1.2;
+            beamAlphaScale = 0.33; // 深夜弱光 ~0.05
         }
 
-        // 绘制体积雾层（远处浓，近处淡）
+        // 绘制体积雾层（远处浓，近处淡），随水流水平流动
         for (const layer of this._fogLayers) {
-            const layerOffset = Math.sin(this._time * 0.1 + layer.offset) * 50;
+            const layerOffset = Math.sin(this._time * 0.1 + layer.offset) * 50
+                + Math.sin(this._time * 0.05 + layer.flowPhase) * 30; // 缓慢水平流动
             const gradient = ctx.createLinearGradient(0, layer.y - layer.height / 2, 0, layer.y + layer.height / 2);
             gradient.addColorStop(0, `rgba(${fogColor.r}, ${fogColor.g}, ${fogColor.b}, 0)`);
             gradient.addColorStop(0.5, `rgba(${fogColor.r}, ${fogColor.g}, ${fogColor.b}, ${layer.density * this._density * densityMult})`);
@@ -205,7 +243,7 @@ export class VolumetricFog {
             ctx.fillRect(layerOffset - 100, layer.y - layer.height / 2, this.width + 200, layer.height);
         }
 
-        // 绘制丁达尔光束
+        // 绘制丁达尔光束（软边 + 微粒条纹纹理）
         ctx.globalCompositeOperation = 'lighter';
         for (const beam of this._lightBeams) {
             const beamX = beam.x + Math.sin(this._time * beam.speed + beam.offset) * 40;
@@ -215,23 +253,35 @@ export class VolumetricFog {
             ctx.translate(beamX, 0);
             ctx.rotate(beam.angle + Math.sin(this._time * 0.2 + beam.offset) * 0.05);
 
-            const gradient = ctx.createLinearGradient(0, 0, 0, this.height);
-            gradient.addColorStop(0, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, ${beamIntensity * densityMult})`);
-            gradient.addColorStop(0.5, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, ${beamIntensity * 0.3 * densityMult})`);
-            gradient.addColorStop(1, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, 0)`);
+            // 分 10 行绘制：每行宽度按梯形展开（顶窄底宽），
+            // 横向渐变实现中心亮、边缘透明的软边；纵向衰减 + 正弦条纹模拟水中微粒
+            const rows = 10;
+            const beamH = this.height;
+            for (let r = 0; r < rows; r++) {
+                const tMid = (r + 0.5) / rows;
+                const y0 = (r / rows) * beamH;
+                const y1 = ((r + 1) / rows) * beamH;
+                const halfW = Utils.lerp(beam.width * 0.5, beam.width * 1.5, tMid);
+                // 纵向衰减：顶部亮、底部淡
+                const depthFade = Math.pow(1 - tMid, 0.8);
+                // 微粒条纹：多组正弦叠加产生细微明暗变化
+                const stripe = 0.72
+                    + Math.sin(this._time * 2.0 + beam.offset + r * 1.7) * 0.18
+                    + Math.sin(this._time * 3.3 + r * 0.9) * 0.10;
+                const a = beamIntensity * depthFade * stripe * beamAlphaScale;
+                if (a <= 0.001) continue;
 
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.moveTo(-beam.width / 2, 0);
-            ctx.lineTo(beam.width / 2, 0);
-            ctx.lineTo(beam.width * 1.5, this.height);
-            ctx.lineTo(-beam.width * 1.5, this.height);
-            ctx.closePath();
-            ctx.fill();
+                const hGrad = ctx.createLinearGradient(-halfW, 0, halfW, 0);
+                hGrad.addColorStop(0, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, 0)`);
+                hGrad.addColorStop(0.5, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, ${a})`);
+                hGrad.addColorStop(1, `rgba(${beamColor.r}, ${beamColor.g}, ${beamColor.b}, 0)`);
+                ctx.fillStyle = hGrad;
+                ctx.fillRect(-halfW, y0, halfW * 2, y1 - y0 + 1);
+            }
             ctx.restore();
         }
 
-        // 全局雾遮罩（远处渐浓）
+        // 全局雾遮罩（水下越深雾越浓）
         ctx.globalCompositeOperation = 'source-over';
         const globalFog = ctx.createLinearGradient(0, 0, 0, this.height);
         globalFog.addColorStop(0, `rgba(${fogColor.r}, ${fogColor.g}, ${fogColor.b}, ${0.05 * densityMult})`);

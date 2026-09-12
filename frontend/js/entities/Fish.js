@@ -1,10 +1,15 @@
 /**
- * 鱼类基类
- * 骨骼动画：脊椎分段弯曲摆动，胸鳍/背鳍/尾鳍独立骨骼扇动
- * 3D 伪立体：菲涅尔光影、俯仰姿态、景深缩放
+ * 鱼类基类（Canvas2D 深度优化版）
+ *  - 伪3D光影：菲涅尔边缘光（Fresnel）+ 顶部方向光高光/底部阴影 + 程序化鱼鳞纹理
+ *  - 骨骼动画：8~12 节脊椎（头/躯干/尾差异化摆幅）+ 独立胸鳍/背鳍/尾鳍骨骼
+ *  - 动画状态机：idle / swim / fast / turn / escape / hurt / dying 七种状态
+ *  - Verlet 物理：鱼鳍边缘节点柔性飘动（阻尼 0.85，3 次约束迭代）
+ *
+ * 公开接口签名保持不变：init / update / render / hit / getCollisionRadius / isBoss / isAlive
  */
 import { Utils } from '../core/Utils.js';
 import { FishConfig } from '../config/fishConfig.js';
+import { VerletSystem } from '../render/VerletPhysics.js';
 
 export class Fish {
     constructor() {
@@ -12,6 +17,9 @@ export class Fish {
         this._pooled = true;
         this._active = false;
     }
+
+    /** 鳞片纹理静态缓存（按 scaleType + 强调色 只生成一次） */
+    static _scaleTextureCache = {};
 
     reset() {
         this.id = '';
@@ -45,6 +53,25 @@ export class Fish {
         this._targetY = 0;
         this._wanderAngle = 0;
         this._wanderTimer = 0;
+
+        // ===== 新增：动画状态机 =====
+        this.animState = 'idle';          // idle/swim/fast/turn/escape/hurt/dying
+        this._hurtTimer = 0;              // 受击僵直剩余时间
+        this._prevAngle = 0;              // 上一帧朝向（计算转向速率）
+        this._turnRate = 0;               // 当前转向速率 rad/s
+        this._lastDt = 0.016;
+
+        // ===== 新增：Verlet 鱼鳍物理 =====
+        this._finSys = null;
+        this._chainPecL = null;
+        this._chainPecR = null;
+        this._chainDorsal = null;
+        this._chainTailTop = null;
+        this._chainTailBot = null;
+
+        // ===== 新增：鱼鳞闪烁粒子（自包含）=====
+        this._scaleSparks = [];
+        this._nextSparkTime = 0;
     }
 
     /**
@@ -76,6 +103,14 @@ export class Fish {
         this._hitFlash = 0;
         this._deathTimer = 0;
 
+        // 动画状态复位
+        this.animState = 'swim';
+        this._hurtTimer = 0;
+        this._prevAngle = this.angle;
+        this._turnRate = 0;
+        this._scaleSparks.length = 0;
+        this._nextSparkTime = this._time + Utils.random(0.5, 2);
+
         // 景深
         if (this.config.depth === 'far') {
             this._depthScale = 0.6;
@@ -90,6 +125,51 @@ export class Fish {
 
         // 初始游走方向
         this._wanderAngle = this.angle + Utils.random(-0.5, 0.5);
+
+        // 构建鱼鳍 Verlet 物理链
+        this._setupFinPhysics();
+    }
+
+    /**
+     * 为当前鱼构建鱼鳍边缘节点 Verlet 链
+     */
+    _setupFinPhysics() {
+        const p = FishConfig.physics;
+        const S = this.size;
+        const sys = new VerletSystem({
+            damping: p.damping,
+            iterations: p.iterations,
+            waterForce: { x: 0, y: 0 }
+        });
+
+        // 通用：从锚点向外伸展 k 个柔性节点
+        const buildChain = (rx, ry, dx, dy, k, stiffness, mass) => {
+            const root = sys.addNode(rx, ry, { pinned: true, mass: p.headMass });
+            const nodes = [root];
+            let px = rx, py = ry;
+            for (let i = 1; i <= k; i++) {
+                px += dx;
+                py += dy;
+                // 末端节点更轻（鱼尾轻、鱼鳍尖轻）
+                const m = mass * (1 - (i / (k + 1)) * 0.5);
+                nodes.push(sys.addNode(px, py, { mass: m }));
+            }
+            for (let i = 0; i < nodes.length - 1; i++) {
+                sys.addConstraint(nodes[i], nodes[i + 1], stiffness);
+            }
+            return { root, nodes };
+        };
+
+        // 左/右胸鳍（独立扇动，各 p.pectoralNodes 个边缘节点）
+        this._chainPecL = buildChain(-S * 0.05, S * 0.15, -S * 0.10, S * 0.20, p.pectoralNodes, p.finStiffness, 0.6);
+        this._chainPecR = buildChain(-S * 0.05, -S * 0.15, -S * 0.10, -S * 0.20, p.pectoralNodes, p.finStiffness, 0.6);
+        // 背鳍（随水流飘动）
+        this._chainDorsal = buildChain(-S * 0.1, -S * 0.25, -S * 0.06, -S * 0.28, p.dorsalNodes, p.finStiffness * 0.8, 0.4);
+        // 尾鳍上/下两叶（独立）
+        this._chainTailTop = buildChain(-S * 0.55, -S * 0.05, -S * 0.16, -S * 0.16, p.tailLobeNodes, p.finStiffness, p.tailMass);
+        this._chainTailBot = buildChain(-S * 0.55, S * 0.05, -S * 0.16, S * 0.16, p.tailLobeNodes, p.finStiffness, p.tailMass);
+
+        this._finSys = sys;
     }
 
     /**
@@ -97,6 +177,7 @@ export class Fish {
      */
     update(dt, gameWidth, gameHeight, bullets = []) {
         if (!this._active || this.state === 'dead') return;
+        this._lastDt = dt;
 
         this._time += dt;
         this._pathTime += dt;
@@ -104,6 +185,7 @@ export class Fish {
         if (this.state === 'dying') {
             this._deathTimer += dt;
             this._hitFlash = Math.max(0, this._hitFlash - dt * 5);
+            // 死亡状态：翻转上浮 + 鱼鳍下垂
             if (this._deathTimer > 0.5) {
                 this.state = 'dead';
                 this._active = false;
@@ -114,10 +196,13 @@ export class Fish {
         // 受击闪烁衰减
         this._hitFlash = Math.max(0, this._hitFlash - dt * 3);
 
+        // 记录转向前朝向（用于计算转向速率）
+        const prevAngle = this.angle;
+
         // 躲避炮弹
         this._updateDodge(dt, bullets);
 
-        // AI 行为
+        // AI 行为（会改变 this.angle）
         this._updateAI(dt, gameWidth, gameHeight);
 
         // 特殊行为
@@ -135,6 +220,43 @@ export class Fish {
         const speedRatio = moveSpeed / this.baseSpeed;
         this._pitch = Utils.lerp(this._pitch, (speedRatio - 1) * 0.2, 0.1);
         this._roll = Utils.lerp(this._roll, Math.sin(this._time * 2) * 0.05, 0.05);
+
+        // 计算转向速率（rad/s）
+        const angleDelta = Math.abs(Utils.lerpAngle(prevAngle, this.angle, 1));
+        this._turnRate = angleDelta / Math.max(dt, 0.0001);
+
+        // 受击僵直计时
+        if (this._hurtTimer > 0) this._hurtTimer -= dt;
+
+        // 状态机切换
+        this._updateAnimState();
+
+        // 鱼鳞闪烁：大鱼偶发自发光点
+        if (this.size > 50 && this._time > this._nextSparkTime) {
+            this._nextSparkTime = this._time + Utils.random(0.8, 2.5);
+            this.emitScaleSpark();
+        }
+        // 衰减已有闪烁
+        for (let i = this._scaleSparks.length - 1; i >= 0; i--) {
+            this._scaleSparks[i].t -= dt * 2.2;
+            if (this._scaleSparks[i].t <= 0) this._scaleSparks.splice(i, 1);
+        }
+    }
+
+    /**
+     * 动画状态机切换（优先级：dying > hurt > escape > fast > turn > idle > swim）
+     */
+    _updateAnimState() {
+        const rules = FishConfig.stateRules;
+        if (this.state === 'dying') { this.animState = 'dying'; return; }
+        if (this._hurtTimer > 0) { this.animState = 'hurt'; return; }
+        if (this._dodging) { this.animState = 'escape'; return; }
+
+        const speedRatio = this.speed / this.baseSpeed;
+        if (speedRatio > rules.fastSpeedRatio) { this.animState = 'fast'; return; }
+        if (this._turnRate > rules.turnRadPerSec) { this.animState = 'turn'; return; }
+        if (speedRatio < rules.idleSpeedRatio) { this.animState = 'idle'; return; }
+        this.animState = 'swim';
     }
 
     _updateAI(dt, gameWidth, gameHeight) {
@@ -150,7 +272,6 @@ export class Fish {
             // 独立行为
             switch (this.config.pathType) {
                 case 'linear':
-                    // 直线游动，偶尔微调
                     this._wanderTimer -= dt;
                     if (this._wanderTimer <= 0) {
                         this._wanderTimer = FishConfig.ai.wanderChangeInterval;
@@ -160,7 +281,6 @@ export class Fish {
                     break;
 
                 case 'sine':
-                    // S 型游动
                     this.targetAngle = Utils.lerpAngle(
                         this.targetAngle,
                         (this.x > 0 ? 0 : Math.PI) + Math.sin(this._pathTime * 1.5) * 0.4,
@@ -169,12 +289,10 @@ export class Fish {
                     break;
 
                 case 'circle':
-                    // 环形游动
                     this.targetAngle += 0.8 * dt;
                     break;
 
                 case 'float':
-                    // 水母漂浮：缓慢上下浮动 + 横向移动
                     this.targetAngle = Utils.lerpAngle(
                         this.targetAngle,
                         (this.x > 0 ? 0 : Math.PI) + Math.sin(this._pathTime * 0.8) * 0.6,
@@ -183,7 +301,6 @@ export class Fish {
                     break;
 
                 case 'erratic':
-                    // 海马：频繁变向的不稳定游动
                     this._wanderTimer -= dt;
                     if (this._wanderTimer <= 0) {
                         this._wanderTimer = Utils.random(0.3, 0.8);
@@ -194,7 +311,6 @@ export class Fish {
 
                 case 'random':
                 default:
-                    // 随机游走
                     this._wanderTimer -= dt;
                     if (this._wanderTimer <= 0) {
                         this._wanderTimer = Utils.random(1, 3);
@@ -248,37 +364,29 @@ export class Fish {
 
         switch (special) {
             case 'electric':
-                // 电鳗：周期性放电
                 this._electricTimer = (this._electricTimer || 0) + dt;
                 if (this._electricTimer > 2.5) {
                     this._electricTimer = 0;
                     this._electricPulse = 1.0;
-                    // 放电粒子由外部粒子系统处理，这里设置状态
                 }
                 this._electricPulse = Math.max(0, (this._electricPulse || 0) - dt * 2);
                 break;
 
             case 'invisible':
-                // 幽灵鱼：周期性隐身
                 this._invisibleTimer = (this._invisibleTimer || 0) + dt;
-                const cycle = this._invisibleTimer % 4; // 4秒一个周期
+                const cycle = this._invisibleTimer % 4;
                 if (cycle < 1.5) {
-                    // 可见阶段
                     this._invisibleAlpha = Utils.lerp(this._invisibleAlpha || 1, 1, 0.1);
                 } else if (cycle < 2) {
-                    // 渐隐
                     this._invisibleAlpha = Utils.lerp(this._invisibleAlpha || 1, 0.15, 0.1);
                 } else if (cycle < 3.5) {
-                    // 隐身阶段
                     this._invisibleAlpha = Utils.lerp(this._invisibleAlpha || 0.15, 0.15, 0.1);
                 } else {
-                    // 渐显
                     this._invisibleAlpha = Utils.lerp(this._invisibleAlpha || 0.15, 1, 0.1);
                 }
                 break;
 
             case 'split':
-                // 分裂鱼：脉动发光
                 this._splitPulse = Math.sin(this._time * 3) * 0.3 + 0.7;
                 break;
         }
@@ -286,7 +394,6 @@ export class Fish {
 
     _handleBoundaries(gameWidth, gameHeight) {
         const margin = this.size * 2;
-        // 超出边界则转向
         if (this.x < -margin) {
             this.x = -margin;
             this.targetAngle = Utils.lerpAngle(this.targetAngle, 0, 0.1);
@@ -317,37 +424,57 @@ export class Fish {
             this._deathTimer = 0;
             return true; // 击杀
         }
+        // 受击僵直 0.3 秒
+        this._hurtTimer = FishConfig.stateRules.hurtDuration;
         return false;
     }
 
     /**
-     * 渲染鱼（骨骼动画 + 菲涅尔光影）
+     * 触发一次鱼鳞微高光闪烁（供粒子系统/外部调用）
+     * @param {number} [x] 局部 x（缺省随机选一段身体）
+     * @param {number} [y] 局部 y
+     */
+    emitScaleSpark(x, y) {
+        if (x == null || y == null) {
+            x = Utils.random(-this.size * 0.4, this.size * 0.1);
+            y = Utils.random(-this.size * 0.15, this.size * 0.15);
+        }
+        this._scaleSparks.push({ x, y, t: 1 });
+    }
+
+    /**
+     * 渲染鱼（骨骼动画 + 伪3D光影 + Verlet 鱼鳍）
      */
     render(ctx) {
         if (!this._active) return;
 
         ctx.save();
-        // 幽灵鱼隐身透明度
         const specialAlpha = this.config?.special === 'invisible' ? (this._invisibleAlpha || 1) : 1;
-        ctx.globalAlpha = this._depthAlpha * specialAlpha * (this.state === 'dying' ? Math.max(0, 1 - this._deathTimer * 2) : 1);
+        const dyingFade = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer * 2) : 1;
+        ctx.globalAlpha = this._depthAlpha * specialAlpha * dyingFade;
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
         ctx.rotate(this._roll);
+
+        // 死亡翻转（肚皮朝上，逐渐翻正感）
+        if (this.state === 'dying') {
+            const flipT = Math.min(1, this._deathTimer * 2.5);
+            ctx.rotate(Math.PI * flipT);
+        }
         ctx.scale(this._depthScale, this._depthScale * (1 + this._pitch));
 
         const cfg = this.config;
         const boneAnim = FishConfig.boneAnimation;
+        const st = FishConfig.animStates[this.animState] || FishConfig.animStates.swim;
         const speedInfluence = 1 + (this.speed / this.baseSpeed - 1) * boneAnim.speedInfluence;
 
         // 发光效果（水母/灯笼鱼/特殊鱼）
         if (cfg.glow) {
             const glowColor = cfg.glowColor || cfg.lureColor || cfg.accentColor;
             let pulse = Math.sin(this._time * 3) * 0.2 + 0.8;
-            // 电鳗放电脉冲
             if (cfg.special === 'electric' && this._electricPulse > 0) {
                 pulse = this._electricPulse;
             }
-            // 分裂鱼脉动
             if (cfg.special === 'split') {
                 pulse = this._splitPulse || 0.8;
             }
@@ -363,69 +490,100 @@ export class Fish {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // 计算骨骼段
-        const segments = cfg.boneSegments;
+        // ===== 计算脊椎骨骼（spineSegments 节，头小尾大摆幅）=====
+        const segments = cfg.spineSegments || cfg.boneSegments;
         const segmentLength = this.size / segments;
         const bonePositions = [];
 
-        // 头部位置
-        let bx = 0, by = 0;
-        let bAngle = 0;
+        const baseFreq = boneAnim.bodyWaveFrequency * speedInfluence * st.freq;
+        const baseAmp = boneAnim.bodyWaveAmplitude * st.bodyAmp * st.bendMult;
+        const headAmp = boneAnim.headAmpScale;     // 0.3x
+        const tailAmp = boneAnim.tailAmpScale;     // 1.5x
+
+        let bx = 0, by = 0, bAngle = 0;
         bonePositions.push({ x: bx, y: by, angle: bAngle, width: this.size * 0.4 });
 
-        // 身体骨骼：正弦波叠加
         for (let i = 1; i < segments; i++) {
-            const wave = Math.sin(this._time * boneAnim.bodyWaveFrequency * speedInfluence - i * 0.6) * boneAnim.bodyWaveAmplitude;
+            const t = i / (segments - 1);
+            const ampRamp = Utils.lerp(headAmp, tailAmp, t); // 头部0.3 → 尾部1.5
+            const wave = Math.sin(this._time * baseFreq - i * 0.6) * baseAmp * ampRamp;
             bAngle += wave;
             bx -= Math.cos(bAngle) * segmentLength;
             by -= Math.sin(bAngle) * segmentLength;
-            const width = this.size * 0.4 * (1 - i / segments * 0.6);
+            const width = this.size * 0.4 * (1 - t * 0.6);
             bonePositions.push({ x: bx, y: by, angle: bAngle, width });
         }
 
-        // 绘制鱼身（骨骼分段）
-        this._renderBody(ctx, bonePositions, cfg);
+        // Verlet 鱼鳍物理步进（根节点吸附到骨骼锚点）
+        this._stepFinPhysics(bonePositions);
 
-        // 绘制背鳍
-        this._renderDorsalFin(ctx, bonePositions, cfg, speedInfluence);
+        // 绘制顺序：身体 → 背鳍 → 胸鳍 → 尾鳍 → 头部 → 闪烁
+        this._renderBody(ctx, bonePositions, cfg, st);
+        this._renderDorsalFin(ctx, bonePositions, cfg, st);
+        this._renderPectoralFins(ctx, bonePositions, cfg, st);
+        this._renderTailFin(ctx, bonePositions, cfg, st);
+        this._renderHead(ctx, bonePositions[0], cfg, st);
 
-        // 绘制胸鳍
-        this._renderPectoralFins(ctx, bonePositions, cfg, speedInfluence);
-
-        // 绘制尾鳍
-        this._renderTailFin(ctx, bonePositions, cfg, speedInfluence);
-
-        // 绘制头部
-        this._renderHead(ctx, bonePositions[0], cfg);
-
-        // 受击闪烁
-        if (this._hitFlash > 0) {
+        // 受击白色闪烁 / hurt 状态变白
+        if (this._hitFlash > 0 || this.animState === 'hurt') {
             ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = this._hitFlash * 0.5;
+            ctx.globalAlpha = Math.max(this._hitFlash * 0.5, this.animState === 'hurt' ? 0.35 : 0);
             for (const pos of bonePositions) {
                 ctx.fillStyle = '#FFFFFF';
                 ctx.beginPath();
                 ctx.arc(pos.x, pos.y, pos.width * 0.6, 0, Math.PI * 2);
                 ctx.fill();
             }
+            ctx.globalCompositeOperation = 'source-over';
         }
 
         ctx.restore();
     }
 
-    _renderBody(ctx, bones, cfg) {
-        // 菲涅尔光影：边缘亮，中心暗
+    /**
+     * 鱼鳍 Verlet 步进：固定根节点到骨骼，施加水流力，求解约束
+     */
+    _stepFinPhysics(bones) {
+        if (!this._finSys) return;
+        const sys = this._finSys;
+        const p = FishConfig.physics;
+        const b1 = bones[1] || bones[0];
+        const b2 = bones[2] || b1;
+        const tail = bones[bones.length - 1];
+
+        // 根节点吸附到身体锚点
+        sys.setNode(this._chainPecL.root, b1.x, b1.y + b1.width * 0.3);
+        sys.setNode(this._chainPecR.root, b1.x, b1.y - b1.width * 0.3);
+        sys.setNode(this._chainDorsal.root, b2.x, b2.y - b2.width * 0.35);
+        sys.setNode(this._chainTailTop.root, tail.x, tail.y - tail.width * 0.1);
+        sys.setNode(this._chainTailBot.root, tail.x, tail.y + tail.width * 0.1);
+
+        // 水流力：沿游向反向阻力（鱼身后甩）+ 垂直正弦扰动（飘动）
+        const sp = Math.max(0.3, this.speed / this.baseSpeed);
+        sys.setWaterForce(-p.waterForceX * sp, Math.sin(this._time * 4) * p.turbulenceY);
+        sys.update(this._lastDt);
+    }
+
+    /**
+     * 鱼身渲染：基础渐变 + 鳞片纹理 + 菲涅尔边缘光 + 方向光高光/阴影
+     */
+    _renderBody(ctx, bones, cfg, st) {
+        const F0 = cfg.fresnelIntensity != null ? cfg.fresnelIntensity : 0.1;
+        const pitchBoost = 1 + Math.abs(this._pitch) * 2;
+
+        // 1) 基础身体分段渐变（顶部 accentColor 提亮，底部 finColor 压暗 = 方向光模拟）
         for (let i = 0; i < bones.length - 1; i++) {
             const curr = bones[i];
             const next = bones[i + 1];
             const t = i / bones.length;
 
-            // 鱼身渐变
             const gradient = ctx.createLinearGradient(curr.x, -curr.width, curr.x, curr.width);
-            gradient.addColorStop(0, Utils.rgba(cfg.accentColor, 0.9)); // 背部高光
+            // 俯仰角度影响高光强度（_pitch 大时顶部更亮）
+            const topAlpha = Utils.clamp(0.9 * (0.8 + Math.abs(this._pitch)), 0.3, 1);
+            gradient.addColorStop(0, Utils.rgba(cfg.accentColor, topAlpha));
             gradient.addColorStop(0.3, cfg.color);
             gradient.addColorStop(0.7, cfg.color);
-            gradient.addColorStop(1, Utils.rgba(cfg.finColor, 0.8)); // 腹部
+            gradient.addColorStop(1, Utils.rgba(cfg.finColor, 0.85));
 
             ctx.fillStyle = gradient;
             ctx.beginPath();
@@ -439,26 +597,194 @@ export class Fish {
             );
             ctx.fill();
 
-            // 菲涅尔边缘光
-            ctx.strokeStyle = Utils.rgba(cfg.accentColor, 0.3 * (1 - t * 0.5));
+            // 菲涅尔边缘描边（随距离尾部衰减）
+            ctx.strokeStyle = Utils.rgba(cfg.accentColor, F0 * (1 - t * 0.5));
             ctx.lineWidth = 1;
             ctx.stroke();
         }
 
-        // 鳞片纹理（大鱼）
+        // 2) 程序化鱼鳞纹理（大鱼，按 scaleType 预渲染 OffscreenCanvas）
         if (this.size > 50) {
-            ctx.fillStyle = Utils.rgba(cfg.accentColor, 0.15);
-            for (let i = 1; i < bones.length - 1; i += 2) {
-                const pos = bones[i];
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y - pos.width * 0.1, pos.width * 0.2, 0, Math.PI * 2);
-                ctx.fill();
-            }
+            this._renderScaleTexture(ctx, bones, cfg);
         }
+
+        // 3) 菲涅尔边缘光晕：沿鱼身外轮廓叠一层亮边
+        this._renderFresnelRim(ctx, bones, cfg, F0, pitchBoost);
+
+        // 4) 顶部方向光高光带（水面阳光）
+        this._renderDirectionalSheen(ctx, bones, cfg);
+
+        // 5) 鱼鳞闪烁亮点
+        this._renderScaleSparks(ctx, cfg);
     }
 
-    _renderHead(ctx, head, cfg) {
-        // 头部
+    /**
+     * 菲涅尔边缘光晕：F(θ) = F0 + (1-F0)(1-cosθ)^5
+     * 用外轮廓路径 + 双层描边近似（顶部掠射角更亮）
+     */
+    _renderFresnelRim(ctx, bones, cfg, F0, pitchBoost) {
+        const n = bones.length;
+        if (n < 2) return;
+        ctx.save();
+        ctx.lineWidth = Math.max(1.2, this.size * 0.03);
+        ctx.lineJoin = 'round';
+
+        // 外轮廓：上沿从首到尾，下沿从尾回到首
+        ctx.beginPath();
+        ctx.moveTo(bones[0].x, bones[0].y - bones[0].width * 0.45);
+        for (let i = 1; i < n; i++) {
+            ctx.lineTo(bones[i].x, bones[i].y - bones[i].width * 0.45);
+        }
+        for (let i = n - 1; i >= 0; i--) {
+            ctx.lineTo(bones[i].x, bones[i].y + bones[i].width * 0.45);
+        }
+        ctx.closePath();
+
+        // 菲涅尔强度：F0 基准 + 俯仰掠射角增强
+        const fresnel = F0 + (1 - F0) * Math.pow(1 - Math.cos(Math.abs(this._pitch) * 2), 5);
+        ctx.strokeStyle = Utils.rgba(cfg.accentColor, Utils.clamp(fresnel * pitchBoost, 0.05, 0.85));
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    /**
+     * 顶部方向光高光带（水面上方阳光）
+     */
+    _renderDirectionalSheen(ctx, bones, cfg) {
+        const n = bones.length;
+        if (n < 2) return;
+        ctx.save();
+        // 沿背部的高光带
+        ctx.beginPath();
+        ctx.moveTo(bones[0].x, bones[0].y - bones[0].width * 0.35);
+        for (let i = 1; i < n; i++) {
+            ctx.lineTo(bones[i].x, bones[i].y - bones[i].width * 0.35);
+        }
+        // 回拉一点形成高光条
+        for (let i = n - 1; i >= 0; i--) {
+            ctx.lineTo(bones[i].x, bones[i].y - bones[i].width * 0.15);
+        }
+        ctx.closePath();
+        const sheen = ctx.createLinearGradient(0, -this.size * 0.4, 0, 0);
+        sheen.addColorStop(0, Utils.rgba('#FFFFFF', 0.22 * (1 + Math.abs(this._pitch))));
+        sheen.addColorStop(1, Utils.rgba('#FFFFFF', 0));
+        ctx.fillStyle = sheen;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    /**
+     * 程序化鱼鳞纹理（预渲染到 OffscreenCanvas，按 scaleType 缓存）
+     */
+    _renderScaleTexture(ctx, bones, cfg) {
+        const tex = Fish._getScaleTexture(cfg.scaleType || 'cycloid', cfg.accentColor);
+        if (!tex) return;
+
+        const n = bones.length;
+        ctx.save();
+        // 裁剪到鱼身轮廓内
+        ctx.beginPath();
+        ctx.moveTo(bones[0].x, bones[0].y - bones[0].width * 0.45);
+        for (let i = 1; i < n; i++) ctx.lineTo(bones[i].x, bones[i].y - bones[i].width * 0.45);
+        for (let i = n - 1; i >= 0; i--) ctx.lineTo(bones[i].x, bones[i].y + bones[i].width * 0.45);
+        ctx.closePath();
+        ctx.clip();
+
+        // 平铺纹理（随鱼身宽度自适应）
+        const pat = ctx.createPattern(tex, 'repeat');
+        if (pat) {
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = pat;
+            ctx.fillRect(bones[n - 1].x - this.size * 0.1, -this.size * 0.5, this.size * 1.3, this.size);
+            ctx.globalAlpha = 1;
+        }
+        ctx.restore();
+    }
+
+    /**
+     * 鱼鳞微高光闪烁粒子
+     */
+    _renderScaleSparks(ctx, cfg) {
+        if (!this._scaleSparks.length) return;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const s of this._scaleSparks) {
+            ctx.fillStyle = Utils.rgba(cfg.accentColor, Utils.clamp(s.t, 0, 1) * 0.9);
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, this.size * 0.04 * s.t + 0.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+    }
+
+    /**
+     * 静态：按鳞片类型预渲染纹理到 OffscreenCanvas（只生成一次）
+     */
+    static _getScaleTexture(scaleType, accentColor) {
+        const key = scaleType + '|' + accentColor;
+        if (Fish._scaleTextureCache[key]) return Fish._scaleTextureCache[key];
+        if (typeof document === 'undefined') return null;
+
+        const size = 128;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const c = canvas.getContext('2d');
+        c.clearRect(0, 0, size, size);
+        c.strokeStyle = accentColor;
+        c.fillStyle = accentColor;
+        c.lineWidth = 2;
+
+        const r = 16;
+        for (let row = -1; row < size / (r * 1.2) + 1; row++) {
+            for (let col = -1; col < size / (r * 1.5) + 1; col++) {
+                const cx = col * r * 1.5 + (row % 2) * r * 0.75;
+                const cy = row * r * 1.2;
+                switch (scaleType) {
+                    case 'ctenoid': // 栉鳞：半圆 + 小刺
+                        c.beginPath();
+                        c.arc(cx, cy, r, Math.PI, Math.PI * 2);
+                        c.stroke();
+                        c.beginPath();
+                        c.moveTo(cx - r, cy);
+                        c.lineTo(cx - r + 3, cy + 4);
+                        c.moveTo(cx + r, cy);
+                        c.lineTo(cx + r - 3, cy + 4);
+                        c.stroke();
+                        break;
+                    case 'ganoid': // 硬鳞：菱形甲片
+                        c.beginPath();
+                        c.moveTo(cx, cy - r);
+                        c.lineTo(cx + r, cy);
+                        c.lineTo(cx, cy + r);
+                        c.lineTo(cx - r, cy);
+                        c.closePath();
+                        c.stroke();
+                        break;
+                    case 'dragon': // 龙鳞：大圆弧 + 中心高光
+                        c.beginPath();
+                        c.arc(cx, cy, r * 1.1, Math.PI * 0.9, Math.PI * 2.1);
+                        c.stroke();
+                        c.globalAlpha = 0.6;
+                        c.beginPath();
+                        c.arc(cx, cy - r * 0.4, r * 0.18, 0, Math.PI * 2);
+                        c.fill();
+                        c.globalAlpha = 1;
+                        break;
+                    case 'cycloid':
+                    default: // 圆鳞：光滑半圆阵列
+                        c.beginPath();
+                        c.arc(cx, cy, r, Math.PI, Math.PI * 2);
+                        c.stroke();
+                        break;
+                }
+            }
+        }
+        Fish._scaleTextureCache[key] = canvas;
+        return canvas;
+    }
+
+    _renderHead(ctx, head, cfg, st) {
         const headGradient = ctx.createRadialGradient(head.x + head.width * 0.2, 0, 0, head.x, 0, head.width * 0.6);
         headGradient.addColorStop(0, Utils.rgba(cfg.accentColor, 0.8));
         headGradient.addColorStop(0.5, cfg.color);
@@ -485,32 +811,54 @@ export class Fish {
         ctx.fill();
     }
 
-    _renderTailFin(ctx, bones, cfg, speedInfluence) {
+    /**
+     * 尾鳍：Verlet 物理节点 + 半透明薄膜渐变
+     */
+    _renderTailFin(ctx, bones, cfg, st) {
         const tail = bones[bones.length - 1];
         const tailAnim = FishConfig.boneAnimation;
-        const swing = Math.sin(this._time * tailAnim.tailFrequency * speedInfluence) * tailAnim.tailAmplitude;
+        const swing = Math.sin(this._time * tailAnim.tailFrequency * st.tailFreq) * tailAnim.tailAmplitude * st.tailAmp;
 
         ctx.save();
         ctx.translate(tail.x, tail.y);
         ctx.rotate(tail.angle + swing);
 
-        // 尾鳍
+        // 半透明薄膜（alpha 0.6~0.8）
+        ctx.globalAlpha = 0.72;
         const gradient = ctx.createLinearGradient(0, -tail.width, 0, tail.width);
-        gradient.addColorStop(0, Utils.rgba(cfg.accentColor, 0.8));
-        gradient.addColorStop(0.5, cfg.finColor);
-        gradient.addColorStop(1, Utils.rgba(cfg.accentColor, 0.8));
-
+        gradient.addColorStop(0, Utils.rgba(cfg.accentColor, 0.55));
+        gradient.addColorStop(0.5, Utils.rgba(cfg.finColor, 0.85));
+        gradient.addColorStop(1, Utils.rgba(cfg.accentColor, 0.55));
         ctx.fillStyle = gradient;
+
+        // 使用 Verlet 节点绘制两叶
         ctx.beginPath();
         ctx.moveTo(0, 0);
-        ctx.quadraticCurveTo(-tail.width * 0.8, -tail.width * 1.2, -tail.width * 1.2, -tail.width * 0.8);
-        ctx.quadraticCurveTo(-tail.width * 0.6, 0, -tail.width * 1.2, tail.width * 0.8);
-        ctx.quadraticCurveTo(-tail.width * 0.8, tail.width * 1.2, 0, 0);
+        // 上叶（物理节点）
+        if (this._chainTailTop) {
+            for (let i = 1; i < this._chainTailTop.nodes.length; i++) {
+                const n = this._finSys.nodes[this._chainTailTop.nodes[i]];
+                ctx.lineTo(n.x - tail.x, n.y - tail.y);
+            }
+        } else {
+            ctx.quadraticCurveTo(-tail.width * 0.8, -tail.width * 1.2, -tail.width * 1.2, -tail.width * 0.8);
+        }
+        // 下叶
+        if (this._chainTailBot) {
+            for (let i = this._chainTailBot.nodes.length - 1; i >= 1; i--) {
+                const n = this._finSys.nodes[this._chainTailBot.nodes[i]];
+                ctx.lineTo(n.x - tail.x, n.y - tail.y);
+            }
+        } else {
+            ctx.quadraticCurveTo(-tail.width * 0.6, 0, -tail.width * 1.2, tail.width * 0.8);
+            ctx.quadraticCurveTo(-tail.width * 0.8, tail.width * 1.2, 0, 0);
+        }
         ctx.closePath();
         ctx.fill();
 
-        // 尾鳍纹理
-        ctx.strokeStyle = Utils.rgba(cfg.accentColor, 0.4);
+        // 尾鳍纹理线
+        ctx.globalAlpha = 0.5;
+        ctx.strokeStyle = Utils.rgba(cfg.accentColor, 0.5);
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(0, 0);
@@ -522,47 +870,84 @@ export class Fish {
         ctx.restore();
     }
 
-    _renderPectoralFins(ctx, bones, cfg, speedInfluence) {
+    /**
+     * 胸鳍：独立扇动 + Verlet 边缘飘动 + 边缘渐变透明
+     */
+    _renderPectoralFins(ctx, bones, cfg, st) {
         const finAnim = FishConfig.boneAnimation;
-        const swing = Math.sin(this._time * finAnim.finFrequency * speedInfluence) * finAnim.finAmplitude;
+        const swing = Math.sin(this._time * finAnim.finFrequency * st.finFreq) * finAnim.finAmplitude * st.finAmp;
         const head = bones[0];
 
-        // 左右胸鳍
         for (const side of [-1, 1]) {
+            const chain = side > 0 ? this._chainPecL : this._chainPecR;
             ctx.save();
             ctx.translate(head.x - head.width * 0.1, side * head.width * 0.25);
             ctx.rotate(side * (Math.PI / 4 + swing));
 
-            const gradient = ctx.createLinearGradient(0, 0, head.width * 0.5, 0);
-            gradient.addColorStop(0, cfg.finColor);
-            gradient.addColorStop(1, Utils.rgba(cfg.accentColor, 0.3));
-
+            // 半透明薄膜
+            ctx.globalAlpha = 0.65;
+            const gradient = ctx.createLinearGradient(0, 0, head.width * 0.6, side * head.width * 0.2);
+            gradient.addColorStop(0, Utils.rgba(cfg.finColor, 0.8));
+            gradient.addColorStop(1, Utils.rgba(cfg.accentColor, 0.05)); // 边缘透明 + 透光加亮
             ctx.fillStyle = gradient;
+
             ctx.beginPath();
-            ctx.ellipse(head.width * 0.25, 0, head.width * 0.3, head.width * 0.12, 0, 0, Math.PI * 2);
+            ctx.moveTo(0, 0);
+            if (chain) {
+                // 用物理节点描绘鳍边
+                for (let i = 1; i < chain.nodes.length; i++) {
+                    const n = this._finSys.nodes[chain.nodes[i]];
+                    // 物理节点在鱼体坐标系，需相对当前 translate 变换（简化：直接投影到旋转系）
+                    const lx = n.x - (head.x - head.width * 0.1);
+                    const ly = n.y - side * head.width * 0.25;
+                    // 反向旋转回到胸鳍局部
+                    const a = -side * (Math.PI / 4 + swing);
+                    const rx = lx * Math.cos(a) - ly * Math.sin(a);
+                    const ry = lx * Math.sin(a) + ly * Math.cos(a);
+                    ctx.lineTo(rx, ry);
+                }
+            } else {
+                ctx.ellipse(head.width * 0.25, 0, head.width * 0.3, head.width * 0.12, 0, 0, Math.PI * 2);
+            }
+            ctx.closePath();
             ctx.fill();
             ctx.restore();
         }
     }
 
-    _renderDorsalFin(ctx, bones, cfg, speedInfluence) {
+    /**
+     * 背鳍：Verlet 物理节点 + 半透明飘动
+     */
+    _renderDorsalFin(ctx, bones, cfg, st) {
         if (bones.length < 3) return;
-        const finAnim = FishConfig.boneAnimation;
-        const wave = Math.sin(this._time * finAnim.finFrequency * speedInfluence * 0.5) * 0.1;
+        ctx.save();
+        ctx.globalAlpha = 0.65;
+        const gradient = ctx.createLinearGradient(0, -this.size * 0.4, 0, 0);
+        gradient.addColorStop(0, Utils.rgba(cfg.accentColor, 0.1)); // 顶端透明透光
+        gradient.addColorStop(1, Utils.rgba(cfg.finColor, 0.85));
+        ctx.fillStyle = gradient;
 
-        ctx.fillStyle = Utils.rgba(cfg.finColor, 0.7);
         ctx.beginPath();
         ctx.moveTo(bones[1].x, -bones[1].width * 0.4);
 
+        // 沿骨骼画背鳍基线
         for (let i = 2; i < bones.length - 1; i++) {
             const pos = bones[i];
-            const finHeight = pos.width * (0.3 + Math.sin(i * 0.8 + this._time) * 0.1 + wave);
+            const finHeight = pos.width * 0.3;
             ctx.lineTo(pos.x, -pos.width * 0.4 - finHeight);
         }
 
+        // Verlet 背鳍顶端节点
+        if (this._chainDorsal) {
+            for (let i = this._chainDorsal.nodes.length - 1; i >= 1; i--) {
+                const n = this._finSys.nodes[this._chainDorsal.nodes[i]];
+                ctx.lineTo(n.x, n.y);
+            }
+        }
         ctx.lineTo(bones[bones.length - 2].x, -bones[bones.length - 2].width * 0.35);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
     }
 
     /**
