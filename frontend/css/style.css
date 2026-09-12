@@ -1,0 +1,4143 @@
+/* ========================================
+   捕鱼达人·东海龙宫 - 全局样式
+   国风深海墨蓝主题 + 琉璃玻璃拟态 + 鎏金发光
+   ======================================== */
+
+/* CSS 变量 */
+:root {
+    --primary: #06223A;
+    --primary-light: #0A3A5C;
+    --primary-dark: #03101F;
+    --accent: #36E0E8;
+    --accent-light: #7DF9FF;
+    --gold: #FFD700;
+    --gold-dark: #B8860B;
+    --gold-light: #FFF8DC;
+    --text: #F0F8FF;
+    --text-gold: #FFD700;
+    --danger: #FF6B35;
+    --success: #4ADE80;
+
+    --glass-bg: rgba(6, 34, 58, 0.75);
+    --glass-border: rgba(255, 215, 0, 0.4);
+    --glass-shadow: 0 0 20px rgba(54, 224, 232, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: var(--primary-dark);
+    font-family: "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    color: var(--text);
+}
+
+/* ========================================
+   加载画面
+   ======================================== */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-dark) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    transition: opacity 0.5s ease;
+}
+
+.loading-screen.fade-out {
+    opacity: 0;
+}
+
+.loading-content {
+    text-align: center;
+}
+
+.loading-logo {
+    margin-bottom: 40px;
+}
+
+.logo-icon {
+    font-size: 80px;
+    display: block;
+    animation: float 3s ease-in-out infinite;
+    filter: drop-shadow(0 0 20px var(--gold));
+}
+
+.logo-title {
+    font-size: 42px;
+    font-weight: bold;
+    background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+    margin-top: 10px;
+    letter-spacing: 8px;
+}
+
+.logo-subtitle {
+    font-size: 18px;
+    color: var(--accent);
+    letter-spacing: 6px;
+    margin-top: 5px;
+    text-shadow: 0 0 10px var(--accent);
+}
+
+.loading-bar-container {
+    width: 280px;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    margin: 0 auto 15px;
+    overflow: hidden;
+    border: 1px solid var(--glass-border);
+}
+
+.loading-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%);
+    border-radius: 3px;
+    box-shadow: 0 0 10px var(--accent);
+    transition: width 0.3s ease;
+}
+
+.loading-text {
+    font-size: 14px;
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+.loading-error {
+    color: var(--danger);
+    font-size: 16px;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+/* ========================================
+   游戏容器
+   ======================================== */
+.game-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.game-container canvas {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+/* ========================================
+   琉璃玻璃面板通用样式
+   ======================================== */
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 16px;
+    box-shadow: var(--glass-shadow);
+}
+
+/* ========================================
+   顶部状态栏
+   ======================================== */
+.top-bar {
+    position: absolute;
+    top: calc(10px + var(--safe-top));
+    left: calc(10px + var(--safe-left));
+    right: calc(10px + var(--safe-right));
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
+    border-radius: 28px;
+}
+
+.top-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.player-avatar {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-light), var(--primary));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border: 2px solid var(--gold);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+.avatar-ring {
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    border-top-color: var(--accent);
+    animation: spin 3s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.player-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.player-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.player-vip {
+    font-size: 11px;
+    color: var(--gold);
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+    padding: 1px 6px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    width: fit-content;
+}
+
+.top-bar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.coin-display {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    border-radius: 20px;
+    padding: 6px 14px;
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.coin-icon {
+    font-size: 20px;
+    filter: drop-shadow(0 0 5px var(--gold));
+}
+
+.coin-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
+    min-width: 60px;
+    text-align: center;
+    transition: transform 0.2s;
+}
+
+.coin-value.coin-bump {
+    transform: scale(1.2);
+}
+
+.coin-add-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+    transition: transform 0.15s;
+}
+
+.coin-add-btn:active {
+    transform: scale(0.9);
+}
+
+/* 能量条 */
+.energy-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    justify-content: center;
+}
+
+.energy-bar-bg {
+    width: 120px;
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    overflow: hidden;
+}
+
+.energy-bar-fill {
+    height: 100%;
+    width: 30%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #36E0E8, #7DF9FF, #36E0E8);
+    box-shadow: 0 0 8px rgba(54, 224, 232, 0.6);
+    transition: width 0.3s ease;
+    animation: energyGlow 2s ease-in-out infinite;
+}
+
+@keyframes energyGlow {
+    0%, 100% { box-shadow: 0 0 6px rgba(54, 224, 232, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(54, 224, 232, 0.8); }
+}
+
+.energy-bar-text {
+    font-size: 10px;
+    color: var(--accent);
+    font-weight: bold;
+    min-width: 45px;
+}
+
+.top-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.diamond-display, .level-display {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.diamond-display {
+    color: var(--accent-light);
+    text-shadow: 0 0 8px var(--accent);
+}
+
+.level-display {
+    color: var(--gold);
+    text-shadow: 0 0 8px var(--gold);
+}
+
+/* ========================================
+   底部操作栏
+   ======================================== */
+.bottom-bar {
+    position: absolute;
+    bottom: calc(10px + var(--safe-bottom));
+    left: calc(10px + var(--safe-left));
+    right: calc(10px + var(--safe-right));
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    z-index: 100;
+    border-radius: 32px;
+}
+
+.bottom-bar-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.cannon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(54, 224, 232, 0.2), rgba(54, 224, 232, 0.05));
+    color: var(--accent);
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 0 8px rgba(54, 224, 232, 0.3);
+}
+
+.cannon-btn:active {
+    transform: scale(0.9);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+    color: var(--gold);
+}
+
+.cannon-level {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1.1;
+    min-width: 50px;
+}
+
+.cannon-level .level-label {
+    font-size: 10px;
+    color: var(--accent);
+    opacity: 0.7;
+}
+
+.cannon-level .level-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.6);
+}
+
+.bottom-bar-center {
+    display: flex;
+    align-items: center;
+}
+
+.auto-fire-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(54, 224, 232, 0.15), rgba(54, 224, 232, 0.05));
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 12px;
+}
+
+.auto-fire-btn.active {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+    color: var(--gold);
+    border-color: var(--gold);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+}
+
+.auto-fire-btn:active {
+    transform: scale(0.95);
+}
+
+.auto-fire-icon {
+    font-size: 18px;
+}
+
+.bottom-bar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.action-btn {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: rgba(6, 34, 58, 0.5);
+    font-size: 18px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.action-btn:active {
+    transform: scale(0.9);
+    background: rgba(255, 215, 0, 0.2);
+}
+
+.btn-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--danger);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
+
+/* ========================================
+   侧边道具栏
+   ======================================== */
+.sidebar {
+    position: absolute;
+    right: calc(10px + var(--safe-right));
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px 8px;
+    z-index: 99;
+    border-radius: 24px;
+}
+
+.item-btn {
+    position: relative;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px solid var(--glass-border);
+    background: linear-gradient(135deg, rgba(6, 34, 58, 0.8), rgba(10, 58, 92, 0.6));
+    font-size: 24px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 0 10px rgba(54, 224, 232, 0.2);
+}
+
+.item-btn:active {
+    transform: scale(0.9);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
+.item-count {
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: var(--gold);
+    color: var(--primary-dark);
+    font-size: 11px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-cooldown {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sidebar-divider {
+    width: 80%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.4), transparent);
+    margin: 4px 0;
+}
+
+/* 技能按钮 */
+.skill-btn {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 2px solid rgba(54, 224, 232, 0.5);
+    background: linear-gradient(135deg, rgba(54, 224, 232, 0.15), rgba(6, 34, 58, 0.8));
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    box-shadow: 0 0 10px rgba(54, 224, 232, 0.2);
+    padding: 0;
+}
+
+.skill-btn:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 15px rgba(54, 224, 232, 0.5);
+    transform: scale(1.08);
+}
+
+.skill-btn:active {
+    transform: scale(0.92);
+}
+
+.skill-btn.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+.skill-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.skill-cost {
+    font-size: 8px;
+    color: var(--accent);
+    font-weight: bold;
+    margin-top: 1px;
+}
+
+/* ========================================
+   弹窗系统
+   ======================================== */
+.popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: popupFadeIn 0.2s ease;
+}
+
+@keyframes popupFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.popup-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+.popup-panel {
+    position: relative;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    animation: popupSlideIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    overflow: hidden;
+}
+
+@keyframes popupSlideIn {
+    from {
+        transform: scale(0.8) translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.popup-title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--glass-border);
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.1), transparent);
+}
+
+.popup-title {
+    font-size: 18px;
+    font-weight: bold;
+    background: linear-gradient(180deg, var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+    letter-spacing: 2px;
+}
+
+.popup-close-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--glass-border);
+    background: rgba(255, 107, 53, 0.2);
+    color: var(--danger);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.popup-close-btn:hover {
+    background: rgba(255, 107, 53, 0.4);
+    transform: rotate(90deg);
+}
+
+.popup-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+}
+
+.popup-content::-webkit-scrollbar {
+    width: 4px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+    background: var(--glass-border);
+    border-radius: 2px;
+}
+
+/* ========================================
+   Toast 提示
+   ======================================== */
+.toast-container {
+    position: fixed;
+    top: calc(80px + var(--safe-top));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.toast {
+    padding: 10px 24px;
+    border-radius: 20px;
+    font-size: 14px;
+    color: var(--text);
+    white-space: nowrap;
+    animation: toastIn 0.3s ease, toastOut 0.3s ease 1.7s forwards;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes toastIn {
+    from { transform: translateY(-20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toastOut {
+    to { transform: translateY(-10px); opacity: 0; }
+}
+
+.toast.fade-out {
+    opacity: 0;
+}
+
+/* ========================================
+   FPS 显示
+   ======================================== */
+.fps-display {
+    position: absolute;
+    top: calc(70px + var(--safe-top));
+    left: 10px;
+    padding: 4px 10px;
+    background: rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    font-size: 11px;
+    color: var(--success);
+    font-family: monospace;
+    z-index: 200;
+    pointer-events: none;
+}
+
+/* ========================================
+   任务面板
+   ======================================== */
+.task-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.2s;
+}
+
+.task-item.completed {
+    border-color: var(--gold);
+    background: rgba(255, 215, 0, 0.1);
+}
+
+.task-item.claimed {
+    opacity: 0.5;
+}
+
+.task-info {
+    flex: 1;
+}
+
+.task-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--text);
+    display: block;
+    margin-bottom: 6px;
+}
+
+.task-progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.task-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.task-progress-text {
+    font-size: 11px;
+    color: var(--accent);
+    opacity: 0.7;
+}
+
+.task-reward {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    margin-left: 12px;
+}
+
+.reward-coins, .reward-diamonds {
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.reward-coins { color: var(--gold); }
+.reward-diamonds { color: var(--accent); }
+
+.task-claim-btn {
+    padding: 6px 14px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.task-claim-btn:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    cursor: not-allowed;
+}
+
+.task-claim-btn:not(:disabled):active {
+    transform: scale(0.95);
+}
+
+/* ========================================
+   排行榜
+   ======================================== */
+.rank-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.rank-tab {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.rank-tab.active {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.rank-list {
+    margin-bottom: 16px;
+}
+
+.rank-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    margin-bottom: 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    gap: 10px;
+}
+
+.rank-item.top {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.rank-number {
+    width: 28px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.rank-avatar {
+    font-size: 24px;
+}
+
+.rank-name {
+    flex: 1;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.rank-coins {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+}
+
+.rank-my {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px;
+    background: linear-gradient(90deg, rgba(54, 224, 232, 0.1), transparent);
+    border-radius: 10px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    font-size: 13px;
+    color: var(--accent);
+}
+
+/* ========================================
+   设置面板
+   ======================================== */
+.setting-group {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.setting-group label {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.setting-control {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.volume-slider {
+    width: 120px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    outline: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: var(--gold);
+    cursor: pointer;
+    box-shadow: 0 0 8px var(--gold);
+}
+
+.toggle-btn {
+    padding: 6px 16px;
+    border-radius: 14px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-width: 50px;
+}
+
+.toggle-btn.on {
+    background: linear-gradient(135deg, rgba(74, 222, 128, 0.3), rgba(74, 222, 128, 0.1));
+    border-color: var(--success);
+    color: var(--success);
+}
+
+.toggle-btn.off {
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.quality-btns {
+    display: flex;
+    gap: 6px;
+}
+
+.quality-btn {
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.quality-btn.active {
+    background: linear-gradient(135deg, rgba(54, 224, 232, 0.3), rgba(54, 224, 232, 0.1));
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.pause-btn {
+    padding: 8px 24px;
+    border-radius: 16px;
+    border: 1px solid var(--gold);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+    color: var(--gold);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pause-btn:active {
+    transform: scale(0.95);
+}
+
+.setting-links {
+    display: flex;
+    gap: 16px;
+    padding: 12px 0;
+}
+
+.setting-link {
+    color: var(--accent);
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.setting-disclaimer {
+    margin-top: 16px;
+    padding: 12px;
+    background: rgba(255, 107, 53, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.setting-disclaimer p {
+    font-size: 11px;
+    color: var(--danger);
+    line-height: 1.5;
+}
+
+/* ========================================
+   签到面板
+   ======================================== */
+.signin-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 20px;
+}
+
+.signin-day {
+    position: relative;
+    padding: 10px 4px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: center;
+    transition: all 0.2s;
+}
+
+.signin-day.signed {
+    background: rgba(74, 222, 128, 0.15);
+    border-color: var(--success);
+}
+
+.signin-day.current {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.3), rgba(255, 215, 0, 0.1));
+    border-color: var(--gold);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.4);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.day-number {
+    font-size: 10px;
+    color: var(--accent);
+    opacity: 0.7;
+    display: block;
+    margin-bottom: 4px;
+}
+
+.day-reward {
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.day-check {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    color: var(--success);
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.signin-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 24px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+    margin-bottom: 12px;
+}
+
+.signin-btn:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    box-shadow: none;
+    cursor: not-allowed;
+}
+
+.signin-btn:not(:disabled):active {
+    transform: scale(0.98);
+}
+
+.signin-hint {
+    font-size: 12px;
+    color: var(--accent);
+    opacity: 0.7;
+    text-align: center;
+    line-height: 1.5;
+}
+
+/* ========================================
+   幸运转盘
+   ======================================== */
+.wheel-container {
+    position: relative;
+    width: 260px;
+    height: 260px;
+    margin: 0 auto 20px;
+}
+
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 4px solid var(--gold);
+    box-shadow: 0 0 30px rgba(255, 215, 0, 0.4), inset 0 0 20px rgba(0, 0, 0, 0.3);
+    position: relative;
+    overflow: hidden;
+    transition: transform 4s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+}
+
+.wheel-segment {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    top: 0;
+    left: 50%;
+    transform-origin: bottom left;
+    background: linear-gradient(135deg, rgba(6, 34, 58, 0.8), rgba(10, 58, 92, 0.6));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wheel-segment:nth-child(odd) {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 215, 0, 0.05));
+}
+
+.wheel-segment span {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) rotate(22.5deg);
+    font-size: 10px;
+    color: var(--gold);
+    white-space: nowrap;
+    text-align: center;
+}
+
+.wheel-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--primary-dark);
+    box-shadow: 0 0 20px rgba(255, 215, 0, 0.6);
+    z-index: 2;
+}
+
+.wheel-pointer {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 20px solid var(--danger);
+    z-index: 3;
+    filter: drop-shadow(0 0 5px var(--danger));
+}
+
+.wheel-info {
+    text-align: center;
+}
+
+.wheel-info p {
+    font-size: 14px;
+    color: var(--text);
+    margin-bottom: 12px;
+}
+
+.wheel-spin-btn {
+    padding: 12px 40px;
+    border-radius: 24px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
+    margin-bottom: 12px;
+}
+
+.wheel-spin-btn:active {
+    transform: scale(0.95);
+}
+
+.wheel-hint {
+    font-size: 11px !important;
+    color: var(--accent) !important;
+    opacity: 0.6;
+}
+
+/* ========================================
+   炮台养成升级
+   ======================================== */
+.upgrade-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.upgrade-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.upgrade-power {
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.upgrade-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.upgrade-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    transition: all 0.15s;
+}
+
+.upgrade-item:hover {
+    border-color: rgba(255, 215, 0, 0.3);
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.upgrade-icon {
+    font-size: 28px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(6, 34, 58, 0.8));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    flex-shrink: 0;
+}
+
+.upgrade-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.upgrade-name {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.upgrade-name span:first-child {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+}
+
+.upgrade-level {
+    font-size: 11px;
+    color: var(--accent);
+    opacity: 0.8;
+}
+
+.upgrade-desc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 4px;
+}
+
+.upgrade-effect {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    margin-bottom: 4px;
+}
+
+.upgrade-effect span:first-child {
+    color: var(--accent);
+}
+
+.upgrade-next {
+    color: var(--gold);
+    opacity: 0.8;
+}
+
+.upgrade-progress {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.upgrade-progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), #FFA500);
+    box-shadow: 0 0 6px rgba(255, 215, 0, 0.5);
+    transition: width 0.3s;
+}
+
+.upgrade-btn {
+    flex-shrink: 0;
+    padding: 8px 14px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+    white-space: nowrap;
+}
+
+.upgrade-btn:hover:not(.maxed) {
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.5);
+}
+
+.upgrade-btn:active:not(.maxed) {
+    transform: scale(0.95);
+}
+
+.upgrade-btn.maxed {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ========================================
+   宠物系统
+   ======================================== */
+.pet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.pet-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.pet-hint {
+    font-size: 11px;
+    color: var(--accent);
+    opacity: 0.7;
+}
+
+.pet-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.pet-card {
+    position: relative;
+    padding: 15px 10px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    transition: all 0.15s;
+    overflow: hidden;
+}
+
+.pet-card.owned {
+    border-color: rgba(54, 224, 232, 0.3);
+}
+
+.pet-card.active {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.02));
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.pet-card.locked {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+}
+
+.pet-rarity {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 9px;
+    font-weight: bold;
+}
+
+.pet-rarity.SSR {
+    background: linear-gradient(135deg, #FFD700, #FFA500);
+    color: #000;
+}
+
+.pet-rarity.SR {
+    background: linear-gradient(135deg, #36E0E8, #7DF9FF);
+    color: #000;
+}
+
+.pet-icon-large {
+    font-size: 36px;
+    margin: 8px 0 4px;
+    filter: drop-shadow(0 0 8px currentColor);
+}
+
+.pet-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+    margin-bottom: 2px;
+}
+
+.pet-desc {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 8px;
+    line-height: 1.3;
+}
+
+.pet-stats {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    font-size: 10px;
+    color: var(--accent);
+    margin-bottom: 4px;
+}
+
+.pet-level {
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: bold;
+    margin-bottom: 8px;
+}
+
+.pet-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.pet-btn {
+    padding: 6px 10px;
+    border-radius: 10px;
+    border: none;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.pet-btn.equip-btn {
+    background: linear-gradient(135deg, var(--accent), #7DF9FF);
+    color: var(--primary-dark);
+}
+
+.pet-btn.active-btn {
+    background: rgba(255, 215, 0, 0.2);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    cursor: default;
+}
+
+.pet-btn.upgrade-pet-btn {
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+}
+
+.pet-btn.unlock-btn {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.05));
+    color: var(--gold);
+    border: 1px solid var(--gold);
+}
+
+.pet-btn:hover:not(.active-btn) {
+    transform: scale(1.05);
+}
+
+.pet-btn:active:not(.active-btn) {
+    transform: scale(0.95);
+}
+
+/* ========================================
+   赛季系统
+   ======================================== */
+.season-header {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.season-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.season-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.season-days {
+    font-size: 11px;
+    color: var(--accent);
+}
+
+.season-level-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.season-level {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+    min-width: 40px;
+}
+
+.season-xp-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.season-xp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    border-radius: 4px;
+    transition: width 0.3s;
+}
+
+.season-xp-text {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 50px;
+    text-align: right;
+}
+
+.season-daily-xp {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.season-premium-banner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 165, 0, 0.05));
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.season-premium-banner span {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+}
+
+.season-buy-btn {
+    padding: 6px 16px;
+    border: none;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.season-premium-active {
+    text-align: center;
+    padding: 8px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    background: rgba(255, 215, 0, 0.1);
+    color: var(--gold);
+    font-size: 12px;
+}
+
+.season-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.season-tab {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 15px;
+    background: rgba(54, 224, 232, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.season-tab.active {
+    background: rgba(54, 224, 232, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.season-rewards-list {
+    max-height: 350px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.season-reward-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+}
+
+.season-reward-level {
+    width: 40px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+
+.season-reward-free, .season-reward-premium {
+    flex: 1;
+    text-align: center;
+}
+
+.season-reward-premium.locked {
+    opacity: 0.4;
+}
+
+.reward-label {
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 2px;
+}
+
+.season-reward-premium .reward-label {
+    color: var(--gold);
+}
+
+.reward-content {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
+.reward-claim-btn {
+    padding: 3px 8px;
+    border: none;
+    border-radius: 10px;
+    background: rgba(54, 224, 232, 0.2);
+    color: var(--accent);
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.reward-claim-btn.premium {
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.reward-claimed {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.reward-locked {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.2);
+}
+
+.season-tasks-list {
+    max-height: 350px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.season-task-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--glass-border);
+}
+
+.season-task-info {
+    flex: 1;
+}
+
+.season-task-name {
+    font-size: 12px;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.season-task-type {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.season-task-xp {
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: bold;
+}
+
+.task-done {
+    font-size: 10px;
+    color: #4ade80;
+}
+
+.task-progress {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+/* ========================================
+   公会系统
+   ======================================== */
+.guild-header {
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.guild-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.guild-name {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.guild-level {
+    padding: 2px 10px;
+    border-radius: 12px;
+    background: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.guild-exp-bar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.guild-exp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.guild-exp-text {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.guild-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+}
+
+.guild-tab {
+    flex: 1;
+    padding: 6px 4px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 12px;
+    background: rgba(54, 224, 232, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.guild-tab.active {
+    background: rgba(54, 224, 232, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.guild-info {
+    padding: 10px 0;
+}
+
+.guild-info-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.guild-info-label {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.guild-info-value {
+    font-size: 12px;
+    color: #fff;
+}
+
+.guild-info-value.gold {
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.guild-desc {
+    margin-top: 15px;
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.6;
+}
+
+.guild-leave-btn {
+    width: 100%;
+    margin-top: 15px;
+    padding: 10px;
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    border-radius: 20px;
+    background: transparent;
+    color: #ff6b6b;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.guild-member-list {
+    max-height: 380px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guild-member {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.guild-member.self {
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    background: rgba(255, 215, 0, 0.05);
+}
+
+.guild-member-avatar {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.guild-online-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #4ade80;
+    border: 2px solid #06223A;
+}
+
+.guild-member-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.guild-member-name {
+    font-size: 12px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.guild-member-role {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.guild-member-contribution {
+    font-size: 11px;
+    color: var(--gold);
+    flex-shrink: 0;
+}
+
+.guild-shop-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.guild-contribution-value {
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.guild-shop-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    max-height: 350px;
+    overflow-y: auto;
+}
+
+.guild-shop-item {
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+}
+
+.guild-shop-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.guild-shop-name {
+    font-size: 11px;
+    color: #fff;
+    margin-bottom: 4px;
+}
+
+.guild-shop-cost {
+    font-size: 10px;
+    color: var(--gold);
+    margin-bottom: 6px;
+}
+
+.guild-shop-buy {
+    padding: 4px 12px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.guild-shop-sold, .guild-shop-locked {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.guild-boss {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.guild-boss-icon {
+    font-size: 48px;
+    margin-bottom: 8px;
+}
+
+.guild-boss-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--gold);
+    margin-bottom: 10px;
+}
+
+.guild-boss-hp-bar {
+    height: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+.guild-boss-hp-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444, #ff8844);
+    border-radius: 6px;
+    transition: width 0.3s;
+}
+
+.guild-boss-hp-text {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 12px;
+}
+
+.guild-boss-attack {
+    padding: 10px 30px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #ff4444, #ff8844);
+    color: #fff;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.guild-boss-reward {
+    font-size: 11px;
+    color: var(--gold);
+    margin-bottom: 4px;
+}
+
+.guild-boss-refresh {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 15px;
+}
+
+.guild-boss-rank {
+    text-align: left;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.guild-boss-rank-title {
+    font-size: 12px;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.guild-boss-rank-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 4px 0;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.rank-1 { color: #FFD700; font-weight: bold; }
+.rank-2 { color: #C0C0C0; font-weight: bold; }
+.rank-3 { color: #CD7F32; font-weight: bold; }
+
+/* ========================================
+   装备系统
+   ======================================== */
+.equip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.equip-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.equip-stats {
+    display: flex;
+    gap: 10px;
+    font-size: 11px;
+    color: var(--accent);
+}
+
+.equip-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.equip-tab {
+    flex: 1;
+    padding: 7px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 15px;
+    background: rgba(54, 224, 232, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.equip-tab.active {
+    background: rgba(54, 224, 232, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.equip-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.equip-slot {
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    position: relative;
+}
+
+.equip-slot.filled {
+    border-color: rgba(255, 215, 0, 0.3);
+}
+
+.equip-slot-icon {
+    font-size: 28px;
+    margin-bottom: 4px;
+}
+
+.equip-slot-name {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-bottom: 4px;
+}
+
+.equip-slot-item-name {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.rarity-common { color: #9CA3AF; }
+.rarity-rare { color: #3B82F6; }
+.rarity-epic { color: #A855F7; }
+.rarity-legendary { color: #F59E0B; text-shadow: 0 0 8px rgba(245,158,11,0.5); }
+
+.equip-slot-level {
+    font-size: 11px;
+    color: var(--gold);
+    font-weight: bold;
+}
+
+.equip-slot-stats {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 4px 0;
+}
+
+.equip-slot-empty {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.2);
+    padding: 10px 0;
+}
+
+.equip-unequip-btn, .equip-enhance-btn {
+    padding: 3px 8px;
+    border: none;
+    border-radius: 10px;
+    font-size: 10px;
+    cursor: pointer;
+    margin: 2px;
+}
+
+.equip-unequip-btn {
+    background: rgba(255, 100, 100, 0.15);
+    color: #ff6b6b;
+}
+
+.equip-enhance-btn {
+    background: rgba(255, 215, 0, 0.15);
+    color: var(--gold);
+}
+
+.equip-inventory {
+    max-height: 350px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.equip-empty {
+    text-align: center;
+    padding: 30px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+}
+
+.equip-inv-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+}
+
+.equip-inv-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    flex-shrink: 0;
+}
+
+.equip-inv-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.equip-inv-name {
+    font-size: 12px;
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.equip-inv-stats {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.equip-inv-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.equip-action-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 10px;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.equip-action-btn.equip {
+    background: rgba(54, 224, 232, 0.15);
+    color: var(--accent);
+}
+
+.equip-action-btn.decompose {
+    background: rgba(255, 100, 100, 0.15);
+    color: #ff6b6b;
+}
+
+.equip-draw {
+    text-align: center;
+}
+
+.equip-draw-info {
+    margin-bottom: 20px;
+}
+
+.equip-draw-info p {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin: 5px 0;
+}
+
+.equip-draw-diamond {
+    font-size: 18px !important;
+    color: var(--accent) !important;
+    font-weight: bold;
+}
+
+.equip-draw-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.equip-draw-btn {
+    padding: 15px 25px;
+    border: none;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    align-items: center;
+}
+
+.equip-draw-btn.single {
+    background: linear-gradient(135deg, rgba(54,224,232,0.2), rgba(54,224,232,0.05));
+    border: 1px solid rgba(54, 224, 232, 0.4);
+}
+
+.equip-draw-btn.ten {
+    background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,215,0,0.05));
+    border: 1px solid rgba(255, 215, 0, 0.4);
+}
+
+.equip-draw-btn:hover {
+    transform: scale(1.05);
+}
+
+.draw-btn-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.draw-btn-cost {
+    font-size: 12px;
+    color: var(--accent);
+}
+
+.equip-draw-result {
+    min-height: 30px;
+    font-size: 13px;
+    color: var(--gold);
+}
+
+/* ========================================
+   好友系统
+   ======================================== */
+.friend-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.friend-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.friend-online {
+    font-size: 12px;
+    color: #4ade80;
+}
+
+.friend-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.friend-tab {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 20px;
+    background: rgba(54, 224, 232, 0.05);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.friend-tab.active {
+    background: rgba(54, 224, 232, 0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.friend-list {
+    max-height: 380px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.friend-empty {
+    text-align: center;
+    padding: 30px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 13px;
+}
+
+.friend-actions {
+    margin-bottom: 10px;
+}
+
+.friend-claim-all {
+    width: 100%;
+    padding: 8px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.friend-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+}
+
+.friend-avatar {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.friend-online-dot {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #4ade80;
+    border: 2px solid #06223A;
+}
+
+.friend-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.friend-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.friend-vip {
+    font-size: 9px;
+    color: var(--gold);
+    background: rgba(255, 215, 0, 0.15);
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 4px;
+}
+
+.friend-level {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 2px;
+}
+
+.friend-coins {
+    font-size: 11px;
+    color: var(--gold);
+}
+
+.friend-actions-col {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: flex-end;
+    flex-shrink: 0;
+}
+
+.friend-gift-btn, .friend-claim-btn, .friend-add-btn {
+    padding: 4px 10px;
+    border: none;
+    border-radius: 12px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.friend-gift-btn {
+    background: rgba(54, 224, 232, 0.15);
+    color: var(--accent);
+    border: 1px solid rgba(54, 224, 232, 0.3);
+}
+
+.friend-claim-btn {
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-weight: bold;
+}
+
+.friend-add-btn {
+    background: rgba(74, 222, 128, 0.15);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+}
+
+.friend-gifted {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    padding: 4px 10px;
+}
+
+.friend-delete-btn {
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.2);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.friend-delete-btn:hover {
+    background: rgba(255, 68, 68, 0.2);
+    color: #ff4444;
+}
+
+/* ========================================
+   新手引导
+   ======================================== */
+.tutorial-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+.tutorial-mask {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+.tutorial-dialog {
+    position: relative;
+    width: 90%;
+    max-width: 360px;
+    padding: 30px 25px;
+    text-align: center;
+    animation: tutorialPop 0.4s ease;
+}
+
+@keyframes tutorialPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.tutorial-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+    animation: iconBounce 1s ease infinite;
+}
+
+@keyframes iconBounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.tutorial-title {
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    margin-bottom: 12px;
+}
+
+.tutorial-content {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.tutorial-progress {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.tutorial-progress-bar {
+    flex: 1;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.tutorial-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.tutorial-progress-text {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    min-width: 30px;
+}
+
+.tutorial-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
+
+.tutorial-next-btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 25px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 15px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tutorial-next-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.tutorial-skip-btn {
+    padding: 12px 20px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tutorial-skip-btn:hover {
+    color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* ========================================
+   兑换码弹窗
+   ======================================== */
+.redemption-header {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.redemption-title {
+    display: block;
+    font-size: 20px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    margin-bottom: 5px;
+}
+
+.redemption-hint {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.redemption-input-area {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.redemption-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 25px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 14px;
+    outline: none;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    transition: all 0.2s;
+}
+
+.redemption-input:focus {
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+}
+
+.redemption-input::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.redemption-btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 25px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.redemption-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.5);
+}
+
+.redemption-result {
+    text-align: center;
+    margin-bottom: 15px;
+    min-height: 20px;
+}
+
+.redemption-success {
+    color: #4ade80;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.redemption-error {
+    color: #f87171;
+    font-size: 14px;
+}
+
+.redemption-tips {
+    padding: 12px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    margin-bottom: 15px;
+}
+
+.redemption-tips p {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    line-height: 1.8;
+    margin: 0;
+}
+
+.redemption-codes-title {
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+
+.redemption-codes-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+.redemption-code-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+}
+
+.redemption-code-item.used {
+    opacity: 0.4;
+}
+
+.code-text {
+    font-family: monospace;
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--gold);
+    min-width: 80px;
+}
+
+.code-name {
+    flex: 1;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.code-available {
+    font-size: 10px;
+    color: #4ade80;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(74, 222, 128, 0.1);
+}
+
+.code-used {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ========================================
+   邮件按钮 & 邮件面板
+   ======================================== */
+.mail-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: all 0.15s;
+    margin-left: 8px;
+}
+
+.mail-btn:hover {
+    background: rgba(255, 215, 0, 0.2);
+    transform: scale(1.1);
+}
+
+.mail-badge {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: #ff4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: badge-pulse 1.5s infinite;
+}
+
+@keyframes badge-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+}
+
+.mail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.mail-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.mail-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.mail-action-btn {
+    padding: 5px 12px;
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 15px;
+    background: rgba(54, 224, 232, 0.1);
+    color: var(--accent);
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.mail-action-btn:hover {
+    background: rgba(54, 224, 232, 0.2);
+}
+
+.mail-list {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.mail-empty {
+    text-align: center;
+    padding: 40px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 14px;
+}
+
+.mail-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    cursor: pointer;
+    transition: all 0.15s;
+    position: relative;
+}
+
+.mail-item.unread {
+    border-color: rgba(255, 215, 0, 0.4);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), transparent);
+}
+
+.mail-item.unread::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--gold);
+    box-shadow: 0 0 6px var(--gold);
+}
+
+.mail-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.mail-icon {
+    font-size: 24px;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.mail-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.mail-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2px;
+}
+
+.mail-item-title {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+}
+
+.mail-item.read .mail-item-title {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.mail-time {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+.mail-sender {
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 6px;
+}
+
+.mail-body {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    line-height: 1.5;
+    margin-bottom: 8px;
+}
+
+.mail-attachments {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+}
+
+.mail-attachment {
+    padding: 3px 8px;
+    border-radius: 10px;
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    font-size: 11px;
+    color: var(--gold);
+}
+
+.mail-claim-btn {
+    padding: 5px 14px;
+    border: none;
+    border-radius: 15px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    animation: pulse-glow 1.5s infinite;
+}
+
+.mail-claimed {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.mail-delete-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 20px;
+    height: 20px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+}
+
+.mail-delete-btn:hover {
+    background: rgba(255, 68, 68, 0.3);
+    color: #ff4444;
+}
+
+/* ========================================
+   成就面板
+   ======================================== */
+.achievement-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.achievement-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.achievement-count {
+    font-size: 12px;
+    color: var(--accent);
+}
+
+.achievement-list {
+    max-height: 400px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border);
+    opacity: 0.6;
+    transition: all 0.2s;
+}
+
+.achievement-item.unlocked {
+    opacity: 1;
+    border-color: rgba(255, 215, 0, 0.4);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.06), rgba(255, 215, 0, 0.01));
+}
+
+.achievement-item.claimed {
+    opacity: 0.5;
+}
+
+.achievement-icon {
+    font-size: 28px;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.achievement-item.unlocked .achievement-icon {
+    background: rgba(255, 215, 0, 0.15);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+}
+
+.achievement-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.achievement-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: #fff;
+    margin-bottom: 2px;
+}
+
+.achievement-desc {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 6px;
+}
+
+.achievement-progress-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 2px;
+}
+
+.achievement-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--gold));
+    border-radius: 2px;
+    transition: width 0.3s;
+}
+
+.achievement-progress-text {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.achievement-reward {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--gold);
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.achievement-claim-btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 20px;
+    background: linear-gradient(135deg, var(--gold), #FFA500);
+    color: #1a1a2e;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    animation: pulse-glow 1.5s infinite;
+    flex-shrink: 0;
+}
+
+.achievement-claimed {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.3);
+    flex-shrink: 0;
+}
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 5px rgba(255, 215, 0, 0.5); }
+    50% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.8); }
+}
+
+/* ========================================
+   数据统计面板
+   ======================================== */
+.stats-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.stats-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.stats-id {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: monospace;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.stats-card {
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.stats-card:hover {
+    border-color: rgba(54, 224, 232, 0.3);
+    transform: translateY(-2px);
+}
+
+.stats-card.highlight {
+    border-color: rgba(255, 215, 0, 0.4);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.08), rgba(255, 215, 0, 0.02));
+}
+
+.stats-icon {
+    font-size: 22px;
+    margin-bottom: 4px;
+}
+
+.stats-value {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(255, 215, 0, 0.4);
+}
+
+.stats-card.highlight .stats-value {
+    color: var(--accent);
+    text-shadow: 0 0 8px rgba(54, 224, 232, 0.4);
+}
+
+.stats-label {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-top: 2px;
+}
+
+.stats-footer {
+    padding-top: 10px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.5);
+    line-height: 1.8;
+}
+
+/* ========================================
+   离线收益 & 回归礼包
+   ======================================== */
+.offline-container, .returning-container {
+    text-align: center;
+    padding: 10px 0;
+}
+
+.offline-icon, .returning-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+    animation: floatIcon 2s ease-in-out infinite;
+}
+
+@keyframes floatIcon {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+}
+
+.offline-title, .returning-title {
+    font-size: 22px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    margin: 0 0 8px;
+}
+
+.offline-desc, .returning-desc {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0 0 4px;
+}
+
+.offline-duration, .returning-days {
+    color: var(--accent);
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.offline-capped {
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.7;
+    margin: 0 0 10px;
+}
+
+.offline-reward {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 20px 0;
+    padding: 15px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.02));
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.offline-coin-icon {
+    font-size: 28px;
+}
+
+.offline-coin-amount {
+    font-size: 28px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.offline-claim-btn, .returning-claim-btn {
+    width: 100%;
+    padding: 14px;
+    border-radius: 16px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    margin-top: 10px;
+}
+
+.offline-claim-btn:hover, .returning-claim-btn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px rgba(255, 215, 0, 0.6);
+}
+
+.offline-claim-btn:active, .returning-claim-btn:active {
+    transform: scale(0.97);
+}
+
+.offline-hint, .returning-hint {
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 10px;
+}
+
+.returning-subtitle {
+    font-size: 13px;
+    color: var(--accent);
+    margin: 0 0 15px;
+}
+
+.returning-rewards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.returning-reward-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 12px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+}
+
+.reward-icon {
+    font-size: 22px;
+}
+
+.reward-amount {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--gold);
+}
+
+.returning-offline {
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(54, 224, 232, 0.1);
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--accent);
+}
+
+/* ========================================
+   炮台皮肤
+   ======================================== */
+.skin-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255, 215, 0, 0.2);
+}
+
+.skin-title {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.skin-vip {
+    font-size: 12px;
+    color: var(--gold);
+    background: rgba(255, 215, 0, 0.1);
+    padding: 3px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+}
+
+.skin-list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.skin-card {
+    padding: 15px 8px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.skin-card.unlocked {
+    border-color: rgba(54, 224, 232, 0.3);
+}
+
+.skin-card.active {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.02));
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.skin-card.locked {
+    opacity: 0.5;
+    filter: grayscale(0.7);
+}
+
+.skin-preview {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 10px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--skin-color, #36E0E8)40, transparent 70%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--skin-color, #36E0E8);
+    box-shadow: 0 0 15px var(--skin-color, #36E0E8)60;
+}
+
+.skin-cannon-icon {
+    font-size: 28px;
+}
+
+.skin-name {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--gold);
+    margin-bottom: 2px;
+}
+
+.skin-unlock {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 8px;
+}
+
+.skin-btn {
+    width: 100%;
+    padding: 6px;
+    border-radius: 10px;
+    border: none;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.skin-btn.equip-btn {
+    background: linear-gradient(135deg, var(--accent), #7DF9FF);
+    color: var(--primary-dark);
+}
+
+.skin-btn.active-btn {
+    background: rgba(255, 215, 0, 0.2);
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    cursor: default;
+}
+
+.skin-btn.locked-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.4);
+    cursor: not-allowed;
+}
+
+.skin-btn:hover:not(.active-btn):not(.locked-btn) {
+    transform: scale(1.05);
+}
+
+/* ========================================
+   新手引导
+   ======================================== */
+.guide-steps {
+    min-height: 200px;
+    margin-bottom: 20px;
+}
+
+.guide-step {
+    display: none;
+    text-align: center;
+    animation: guideFadeIn 0.3s ease;
+}
+
+.guide-step.active {
+    display: block;
+}
+
+@keyframes guideFadeIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.guide-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    filter: drop-shadow(0 0 10px var(--gold));
+}
+
+.guide-step h3 {
+    font-size: 20px;
+    color: var(--gold);
+    margin-bottom: 12px;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+.guide-step p {
+    font-size: 14px;
+    color: var(--text);
+    line-height: 1.8;
+    opacity: 0.9;
+}
+
+.guide-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.guide-prev, .guide-next {
+    padding: 8px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.guide-next {
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    border-color: var(--gold);
+    color: var(--primary-dark);
+    font-weight: bold;
+}
+
+.guide-prev:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.guide-indicator {
+    font-size: 14px;
+    color: var(--accent);
+}
+
+.guide-skip {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+/* ========================================
+   商城/充值
+   ======================================== */
+.shop-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.shop-tab {
+    flex: 1;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.shop-tab.active {
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.05));
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.shop-items {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.shop-item {
+    position: relative;
+    padding: 14px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    transition: all 0.15s;
+    overflow: hidden;
+}
+
+.shop-item.popular {
+    border-color: var(--gold);
+    background: linear-gradient(135deg, rgba(255, 215, 0, 0.1), rgba(255, 215, 0, 0.02));
+    box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+}
+
+.shop-item:active {
+    transform: scale(0.97);
+}
+
+.shop-tag {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, var(--danger), #FF4500);
+    color: white;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+.shop-item-name {
+    font-size: 14px;
+    font-weight: bold;
+    color: var(--gold);
+    margin-bottom: 4px;
+}
+
+.shop-item-desc {
+    font-size: 11px;
+    color: var(--accent);
+    opacity: 0.8;
+    margin-bottom: 10px;
+    line-height: 1.4;
+}
+
+.shop-original-price {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    text-decoration: line-through;
+    margin-bottom: 4px;
+}
+
+.shop-buy-btn {
+    width: 100%;
+    padding: 8px;
+    border-radius: 14px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.15s;
+    box-shadow: 0 2px 10px rgba(255, 215, 0, 0.3);
+}
+
+.shop-buy-btn:active {
+    transform: scale(0.95);
+}
+
+@media (max-width: 600px) {
+    .shop-items {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.recharge-notice {
+    padding: 12px;
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    margin-bottom: 16px;
+}
+
+.recharge-notice p {
+    font-size: 13px;
+    color: var(--gold);
+}
+
+.recharge-items {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.recharge-item {
+    padding: 12px 8px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    text-align: center;
+    transition: all 0.15s;
+}
+
+.recharge-item:active {
+    transform: scale(0.95);
+    border-color: var(--gold);
+}
+
+.recharge-amount {
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--gold);
+    margin-bottom: 4px;
+}
+
+.recharge-coins {
+    font-size: 11px;
+    color: var(--accent);
+    margin-bottom: 8px;
+}
+
+.recharge-btn {
+    width: 100%;
+    padding: 6px;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, var(--gold), var(--gold-dark));
+    color: var(--primary-dark);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.recharge-disclaimer {
+    padding: 10px;
+    background: rgba(255, 107, 53, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.recharge-disclaimer p {
+    font-size: 11px;
+    color: var(--danger);
+    line-height: 1.5;
+}
+
+/* ========================================
+   政策文档
+   ======================================== */
+.policy-content {
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text);
+}
+
+.policy-content h3 {
+    color: var(--gold);
+    font-size: 16px;
+    margin: 16px 0 8px;
+}
+
+.policy-content h4 {
+    color: var(--accent);
+    font-size: 14px;
+    margin: 12px 0 6px;
+}
+
+.policy-content p {
+    margin-bottom: 8px;
+    opacity: 0.9;
+}
+
+/* ========================================
+   横屏提示
+   ======================================== */
+.rotate-hint {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--primary-dark);
+    z-index: 9999;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.rotate-icon {
+    font-size: 60px;
+    animation: rotatePhone 2s ease-in-out infinite;
+}
+
+@keyframes rotatePhone {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(90deg); }
+}
+
+.rotate-hint p {
+    font-size: 16px;
+    color: var(--accent);
+}
+
+@media screen and (orientation: portrait) {
+    .rotate-hint {
+        display: flex;
+    }
+}
+
+/* ========================================
+   响应式适配
+   ======================================== */
+@media (max-width: 600px) {
+    .top-bar {
+        height: 48px;
+        padding: 0 10px;
+    }
+
+    .player-avatar {
+        width: 32px;
+        height: 32px;
+        font-size: 18px;
+    }
+
+    .player-name {
+        font-size: 12px;
+    }
+
+    .coin-value {
+        font-size: 15px;
+        min-width: 50px;
+    }
+
+    .bottom-bar {
+        height: 56px;
+        padding: 0 10px;
+    }
+
+    .cannon-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .action-btn {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .sidebar {
+        gap: 8px;
+        padding: 10px 6px;
+    }
+
+    .item-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+
+    .popup-panel {
+        width: 95%;
+        max-height: 85vh;
+    }
+
+    .recharge-items {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-height: 500px) {
+    .top-bar {
+        height: 44px;
+    }
+
+    .bottom-bar {
+        height: 50px;
+    }
+}

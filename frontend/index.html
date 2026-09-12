@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="description" content="捕鱼达人·东海龙宫 - 国风深海主题休闲捕鱼H5游戏">
+    <meta name="theme-color" content="#06223A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>捕鱼达人·东海龙宫</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- 加载画面 -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <span class="logo-icon">🐉</span>
+                <h1 class="logo-title">捕鱼达人</h1>
+                <p class="logo-subtitle">· 东海龙宫 ·</p>
+            </div>
+            <div class="loading-bar-container">
+                <div class="loading-bar" id="loading-bar"></div>
+            </div>
+            <p class="loading-text">正在进入龙宫...</p>
+        </div>
+    </div>
+
+    <!-- 游戏容器 -->
+    <div id="game-container" class="game-container"></div>
+
+    <!-- 旋转提示（竖屏时显示） -->
+    <div class="rotate-hint">
+        <div class="rotate-icon">📱</div>
+        <p>请横屏体验游戏</p>
+    </div>
+
+    <!-- 入口脚本 -->
+    <script type="module" src="js/main.js"></script>
+
+    <script>
+        // 加载进度动画
+        let progress = 0;
+        const loadingBar = document.getElementById('loading-bar');
+        const loadingInterval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress >= 100) {
+                progress = 100;
+                clearInterval(loadingInterval);
+                // 延迟隐藏加载画面
+                setTimeout(() => {
+                    const loading = document.getElementById('loading-screen');
+                    if (loading) {
+                        loading.classList.add('fade-out');
+                        setTimeout(() => loading.style.display = 'none', 500);
+                    }
+                }, 500);
+            }
+            if (loadingBar) loadingBar.style.width = progress + '%';
+        }, 200);
+
+        // PWA Service Worker 注册
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+</html>

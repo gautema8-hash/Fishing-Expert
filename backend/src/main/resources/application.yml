@@ -1,0 +1,151 @@
+server:
+  port: 8081
+  servlet:
+    context-path: /api
+  tomcat:
+    uri-encoding: UTF-8
+    threads:
+      max: 200
+      min-spare: 20
+
+spring:
+  application:
+    name: fishing-backend
+  profiles:
+    active: dev
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    password:
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 20
+        max-idle: 10
+        min-idle: 5
+        max-wait: 3000ms
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    encoding: UTF-8
+    validate-on-migrate: true
+    out-of-order: false
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.fishing.infrastructure.persistence.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: false
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+      insert-strategy: not_null
+      update-strategy: not_null
+
+logging:
+  level:
+    root: INFO
+    com.fishing: DEBUG
+    com.fishing.infrastructure.persistence: DEBUG
+  pattern:
+    console: '%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n'
+
+# Actuator监控
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,env,beans,mappings
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+  info:
+    env:
+      enabled: true
+  metrics:
+    tags:
+      application: fishing-backend
+
+info:
+  app:
+    name: 捕鱼达人·东海龙宫后端
+    version: 1.0.0
+    description: 国风深海主题休闲捕鱼游戏后端服务
+    author: 后端架构组
+
+# 游戏配置
+game:
+  jwt:
+    secret: fishing-dragon-king-secret-key-2024
+    expiration: 86400000
+    header: Authorization
+    prefix: Bearer
+  init:
+    coins: 10000
+    diamonds: 10
+    lock-items: 3
+    rage-items: 2
+  economy:
+    base-cannon-cost: 10
+    crit-rate: 0.05
+    offline-max-hours: 8
+
+---
+# 开发环境
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://127.0.0.1:5432/fishing_db?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+---
+# 生产环境
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+logging:
+  level:
+    root: WARN
+    com.fishing: INFO

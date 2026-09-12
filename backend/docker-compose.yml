@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:14-alpine
+    container_name: fishing-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: fishing_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./src/main/resources/db/migration:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fishing-network
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: fishing-redis
+    restart: always
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - fishing-network
+
+  # 后端服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fishing-backend
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: fishing_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_PORT: 6379
+      TZ: Asia/Shanghai
+    ports:
+      - "8081:8081"
+    networks:
+      - fishing-network
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  fishing-network:
+    driver: bridge

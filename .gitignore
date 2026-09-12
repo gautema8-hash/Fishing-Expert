@@ -1,0 +1,63 @@
+# ==============================
+# 捕鱼达人·东海龙宫 - Git忽略文件
+# ==============================
+
+# 后端编译产物
+backend/target/
+backend/*.log
+backend/startup.log
+
+# 前端依赖和构建
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/*.log
+frontend/frontend.log
+
+# 日志文件
+*.log
+logs/
+
+# IDE和编辑器
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# 操作系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 环境变量和密钥
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+*.bak
+*.cache
+
+# 数据库
+*.db
+*.sqlite
+*.sqlite3
+
+# 覆盖率报告
+coverage/
+.nyc_output/
+
+# PWA缓存
+frontend/.pwa-cache/

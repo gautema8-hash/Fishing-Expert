@@ -1,0 +1,28 @@
+{
+    "name": "捕鱼达人·东海龙宫",
+    "short_name": "捕鱼达人",
+    "description": "国风东海龙宫主题休闲捕鱼H5游戏",
+    "start_url": "./index.html",
+    "display": "fullscreen",
+    "orientation": "landscape",
+    "background_color": "#06223A",
+    "theme_color": "#06223A",
+    "scope": "./",
+    "lang": "zh-CN",
+    "icons": [
+        {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%2306223A'/%3E%3Ctext x='96' y='120' font-size='80' text-anchor='middle'%3E🐉%3C/text%3E%3C/svg%3E",
+            "sizes": "192x192",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' fill='%2306223A'/%3E%3Ctext x='256' y='320' font-size='200' text-anchor='middle'%3E🐉%3C/text%3E%3C/svg%3E",
+            "sizes": "512x512",
+            "type": "image/svg+xml",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["games", "entertainment"],
+    "screenshots": []
+}
