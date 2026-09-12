@@ -281,6 +281,9 @@ export class UIManager {
     }
 
     _fillGuide(content) {
+        const totalSteps = 5;
+        let currentStep = 1;
+
         content.innerHTML = `
             <div class="guide-steps">
                 <div class="guide-step active" data-step="1">
@@ -316,6 +319,46 @@ export class UIManager {
             </div>
             <button class="guide-skip">跳过引导</button>
         `;
+
+        // 绑定按钮事件
+        const prevBtn = content.querySelector('.guide-prev');
+        const nextBtn = content.querySelector('.guide-next');
+        const skipBtn = content.querySelector('.guide-skip');
+        const indicator = content.querySelector('.guide-indicator');
+        const steps = content.querySelectorAll('.guide-step');
+
+        const updateUI = () => {
+            steps.forEach((s, i) => {
+                s.classList.toggle('active', i + 1 === currentStep);
+            });
+            indicator.textContent = `${currentStep} / ${totalSteps}`;
+            prevBtn.disabled = currentStep === 1;
+            nextBtn.textContent = currentStep === totalSteps ? '完成' : '下一步';
+        };
+
+        prevBtn.addEventListener('click', () => {
+            if (currentStep > 1) {
+                currentStep--;
+                updateUI();
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateUI();
+            } else {
+                // 完成引导
+                this.eventBus.emit('guide:completed');
+                this.closePopup();
+                this.showToast('新手引导完成！');
+            }
+        });
+
+        skipBtn.addEventListener('click', () => {
+            this.eventBus.emit('guide:skipped');
+            this.closePopup();
+        });
     }
 
     _fillSetting(content, data) {
