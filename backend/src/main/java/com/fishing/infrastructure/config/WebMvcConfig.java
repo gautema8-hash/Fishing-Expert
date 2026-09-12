@@ -19,8 +19,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     private final JwtInterceptor jwtInterceptor;
 
+    private final AdminJwtInterceptor adminJwtInterceptor;
+
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // 玩家JWT拦截器
         registry.addInterceptor(jwtInterceptor)
                 .addPathPatterns("/**")
                 .excludePathPatterns(
@@ -32,6 +35,19 @@ public class WebMvcConfig implements WebMvcConfigurer {
                         "/favicon.ico",
                         "/error",
                         "/admin/**"
+                );
+
+        // 管理员JWT拦截器，拦截管理API和需要认证的auth端点（login除外）
+        registry.addInterceptor(adminJwtInterceptor)
+                .addPathPatterns("/admin/api/**", "/admin/auth/info", "/admin/auth/logout")
+                .excludePathPatterns(
+                        "/admin/auth/login",
+                        "/admin/index.html",
+                        "/admin/login.html",
+                        "/admin/lib/**",
+                        "/admin/css/**",
+                        "/admin/js/**",
+                        "/admin/assets/**"
                 );
     }
 

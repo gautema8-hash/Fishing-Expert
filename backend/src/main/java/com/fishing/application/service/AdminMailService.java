@@ -1,11 +1,17 @@
 package com.fishing.application.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fishing.common.context.AdminContext;
 import com.fishing.common.exception.BusinessException;
+import com.fishing.infrastructure.persistence.entity.AdminOperationLogEntity;
 import com.fishing.infrastructure.persistence.entity.PlayerEntity;
 import com.fishing.infrastructure.persistence.entity.PlayerMailEntity;
+import com.fishing.infrastructure.persistence.repository.AdminOperationLogMapper;
 import com.fishing.infrastructure.persistence.repository.PlayerMailMapper;
 import com.fishing.infrastructure.persistence.repository.PlayerMapper;
+import com.fishing.interfaces.dto.admin.PageResult;
+import com.fishing.interfaces.dto.admin.SendMailRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -15,6 +21,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 运营邮件服务 - 后台群发邮件/公告
@@ -28,6 +35,7 @@ public class AdminMailService {
 
     private final PlayerMailMapper playerMailMapper;
     private final PlayerMapper playerMapper;
+    private final AdminOperationLogMapper adminOperationLogMapper;
 
     /**
      * 向指定玩家发送邮件
@@ -140,5 +148,117 @@ public class AdminMailService {
         stats.put("unreadMails", unreadMails);
         stats.put("systemMails", systemMails);
         return stats;
+    }
+
+    // ==================== 管理端邮件管理方法 ====================
+
+    /**
+     * 分页查询邮件列表
+     */
+    public PageResult<Map<String, Object>> getMailList(int page, int size) {
+        if (page < 1) page = 1;
+        if (size < 1 || size > 200) size = 20;
+        Page<PlayerMailEntity> pageObj = new Page<>(page, size);
+        LambdaQueryWrapper<PlayerMailEntity> wrapper = new LambdaQueryWrapper<PlayerMailEntity>()
+                .orderByDesc(PlayerMailEntity::getCreatedAt);
+        Page<PlayerMailEntity> resultPage = playerMailMapper.selectPage(pageObj, wrapper);
+        List<Map<String, Object>> list = resultPage.getRecords().stream()
+                .map(this::convertMailToMap)
+                .collect(Collectors.toList());
+        return new PageResult<>(list, resultPage.getTotal(), resultPage.getCurrent(), resultPage.getSize());
+    }
+
+    /**
+     * 邮件详情
+     */
+    public Map<String, Object> getMailDetail(Long mailId) {
+        PlayerMailEntity mail = playerMailMapper.selectById(mailId);
+        if (mail == null) {
+            throw new BusinessException("邮件不存在或已删除");
+        }
+        return convertMailToMap(mail);
+    }
+
+    /**
+     * 管理端发送邮件（单发或群发）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Map<String, Object> sendMail(SendMailRequest request) {
+        if (request == null) {
+            throw new BusinessException("请求参数不能为空");
+        }
+        String title = request.getTitle();
+        String content = request.getContent();
+        if (title == null || title.trim().isEmpty()) {
+            throw new BusinessException("邮件标题不能为空");
+        }
+        if (content == null || content.trim().isEmpty()) {
+            throw new BusinessException("邮件内容不能为空");
+        }
+
+        String sender = "系统";
+        AdminContext.AdminInfo admin = AdminContext.getCurrentAdmin();
+        if (admin != null && admin.getUsername() != null) {
+            sender = admin.getUsername();
+        }
+
+        Map<String, Object> result;
+        boolean broadcast = request.getPlayerId() == null || request.getPlayerId().trim().isEmpty();
+        if (broadcast) {
+            result = sendMailToAll(title, content, request.getAttachments(), sender);
+        } else {
+            sendMailToPlayer(request.getPlayerId(), title, content, request.getAttachments(), sender);
+            result = new HashMap<>(4);
+            result.put("playerId", request.getPlayerId());
+            result.put("title", title);
+            result.put("broadcast", false);
+        }
+
+        recordOperationLog(broadcast ? "全服群发邮件" : "发送单玩家邮件",
+                broadcast ? null : request.getPlayerId(),
+                request);
+        return result;
+    }
+
+    private Map<String, Object> convertMailToMap(PlayerMailEntity mail) {
+        Map<String, Object> map = new HashMap<>(16);
+        map.put("id", mail.getId());
+        map.put("playerId", mail.getPlayerId());
+        map.put("mailType", mail.getMailType());
+        map.put("title", mail.getTitle());
+        map.put("sender", mail.getSender());
+        map.put("content", mail.getContent());
+        map.put("attachments", mail.getAttachments());
+        map.put("isRead", mail.getIsRead());
+        map.put("isClaimed", mail.getIsClaimed());
+        map.put("readAt", mail.getReadAt());
+        map.put("claimedAt", mail.getClaimedAt());
+        map.put("expiredAt", mail.getExpiredAt());
+        map.put("createdAt", mail.getCreatedAt());
+        return map;
+    }
+
+    private void recordOperationLog(String operation, String targetId, SendMailRequest request) {
+        try {
+            AdminOperationLogEntity logEntity = new AdminOperationLogEntity();
+            AdminContext.AdminInfo admin = AdminContext.getCurrentAdmin();
+            if (admin != null) {
+                logEntity.setAdminId(admin.getAdminId());
+                logEntity.setAdminName(admin.getUsername());
+            }
+            logEntity.setOperation(operation);
+            logEntity.setModule("mail");
+            logEntity.setTargetId(targetId);
+            logEntity.setParamsJson(String.format(
+                    "{\"playerId\":%s,\"title\":%s,\"hasAttachments\":%s}",
+                    request.getPlayerId() == null ? "null" : "\"" + request.getPlayerId() + "\"",
+                    request.getTitle() == null ? "null" : "\"" + request.getTitle() + "\"",
+                    request.getAttachments() != null ? "true" : "false"));
+            logEntity.setResult("success");
+            logEntity.setDurationMs(0);
+            adminOperationLogMapper.insert(logEntity);
+        } catch (Exception e) {
+            log.error("记录邮件操作日志失败", e);
+        }
     }
 }

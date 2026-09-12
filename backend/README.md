@@ -1,8 +1,8 @@
-# 捕鱼达人·东海龙宫 - 后端服务
+# 虾堡捕鱼达人 - 后端服务
 
 ## 项目简介
 
-《捕鱼达人·东海龙宫》后端服务，基于Spring Boot 2.7 + MyBatis-Plus + PostgreSQL + Redis构建，采用DDD领域驱动设计，代码符合阿里巴巴规范。提供完整的游戏后端API，支持商业化运营。
+《虾堡捕鱼达人》后端服务，基于Spring Boot 2.7 + MyBatis-Plus + PostgreSQL + Redis构建，采用DDD领域驱动设计，代码符合阿里巴巴规范。提供完整的游戏后端API，支持商业化运营。
 
 ## 技术栈
 
@@ -278,6 +278,54 @@ Authorization: Bearer {token}
 | 单元测试 | 44个（全部通过） |
 | WebSocket模块 | 3个 |
 | 数据库迁移脚本 | 4个 |
+
+## 管理系统
+
+### 管理后台入口
+- 登录页: `http://localhost:8081/api/admin/login.html`
+- 默认账号: `admin` / `admin123`（超级管理员）
+
+### 管理员角色与权限
+| 角色 | 权限 |
+|------|------|
+| super_admin | 全部权限 |
+| operator | 数据查看、邮件发送、公告管理、兑换码管理 |
+| customer_service | 玩家查看、发邮件、订单查询 |
+| finance | 订单查看、订单退款、数据导出、数据查看 |
+
+### 管理API列表
+所有管理API需在Header携带 `Authorization: Bearer <token>`，基础路径 `/api/admin/api/`。
+
+| 模块 | 接口 | 说明 |
+|------|------|------|
+| 认证 | POST /admin/auth/login | 管理员登录 |
+| 认证 | POST /admin/auth/logout | 登出 |
+| 认证 | GET /admin/auth/info | 当前管理员信息 |
+| 仪表盘 | GET /admin/api/stats/overview | 运营概览 |
+| 仪表盘 | GET /admin/api/stats/active-trend | 活跃趋势 |
+| 仪表盘 | GET /admin/api/stats/recharge-distribution | 充值分布 |
+| 仪表盘 | GET /admin/api/stats/game-data | 游戏数据 |
+| 仪表盘 | GET /admin/api/stats/coin-flow | 金币收支 |
+| 仪表盘 | GET /admin/api/stats/level-distribution | 等级分布 |
+| 仪表盘 | GET /admin/api/stats/realtime-online | 实时在线 |
+| 仪表盘 | GET /admin/api/stats/system-status | 系统状态 |
+| 玩家 | GET/POST /admin/api/players | 玩家列表/详情/封禁/解封/调金币/调钻石/发邮件 |
+| 订单 | GET/POST /admin/api/orders | 订单列表/详情/退款 |
+| 邮件 | GET/POST /admin/api/mail | 邮件发送/列表/详情 |
+| 公告 | GET/POST/PUT/DELETE /admin/api/announcements | 公告CRUD/上下架 |
+| 兑换码 | GET/POST/DELETE /admin/api/redemption-codes | 兑换码列表/生成/作废/兑换记录 |
+| 操作日志 | GET /admin/api/operation-logs | 操作日志列表/详情 |
+| 数据导出 | GET /admin/api/export/{players\|orders\|stats} | Excel导出 |
+| 系统配置 | GET/PUT /admin/api/config | 游戏配置/功能开关 |
+
+### 操作审计
+所有管理端写操作自动记录到 `t_admin_operation_log` 表，包含管理员、操作模块、目标ID、参数、IP、耗时、结果等字段，支持按管理员和模块筛选查询。
+
+### 前端技术
+- 纯HTML/CSS/原生JS，无框架依赖
+- ECharts 5.4.3 本地化（`admin/lib/echarts.min.js`）
+- 深色海洋主题，侧边栏SPA导航
+- Token存储于localStorage，401自动跳转登录页
 
 ## 监控指标
 

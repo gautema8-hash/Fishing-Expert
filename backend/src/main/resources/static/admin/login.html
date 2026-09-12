@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登录 - 虾堡捕鱼达人管理后台</title>
+    <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="login-body">
+    <div class="login-card">
+        <div class="login-title">🦐 虾堡捕鱼达人管理后台</div>
+        <div class="login-sub">运营管理系统 v1.0</div>
+
+        <form id="loginForm">
+            <div class="login-field">
+                <label>用户名</label>
+                <input type="text" id="username" placeholder="请输入管理员账号" autocomplete="username" autofocus>
+            </div>
+            <div class="login-field">
+                <label>密码</label>
+                <input type="password" id="password" placeholder="请输入登录密码" autocomplete="current-password">
+            </div>
+            <div class="login-field" style="margin-top:25px;">
+                <button type="submit" class="btn btn-gold" id="loginBtn" style="width:100%;padding:11px;">登 录</button>
+            </div>
+        </form>
+
+        <div style="text-align:center;color:#557799;font-size:11px;margin-top:25px;line-height:1.6;">
+            游戏内金币为纯游戏虚拟道具，不可兑换现金，仅游戏内部消耗使用
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script>
+        // 已登录则直接跳转主页
+        if (api.getToken()) {
+            location.href = 'index.html';
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+
+            if (!username || !password) { toast('请输入用户名和密码', 'error'); return; }
+
+            btn.disabled = true;
+            btn.textContent = '登录中...';
+            try {
+                const data = await api.post('/admin/auth/login', { username, password });
+                api.setToken(data.token);
+                toast('登录成功，正在进入...', 'success');
+                setTimeout(() => { location.href = 'index.html'; }, 600);
+            } catch (err) {
+                toast(err.message || '登录失败', 'error');
+                btn.disabled = false;
+                btn.textContent = '登 录';
+            }
+        });
+    </script>
+</body>
+</html>

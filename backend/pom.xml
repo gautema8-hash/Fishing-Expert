@@ -14,8 +14,8 @@
     <groupId>com.fishing</groupId>
     <artifactId>fishing-backend</artifactId>
     <version>1.0.0</version>
-    <name>fishing-backend</name>
-    <description>捕鱼达人·东海龙宫 - 后端服务</description>
+    <name>虾堡捕鱼达人后端</name>
+    <description>虾堡捕鱼达人游戏后端服务</description>
 
     <properties>
         <java.version>1.8</java.version>

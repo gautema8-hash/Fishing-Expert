@@ -87,9 +87,9 @@ management:
 
 info:
   app:
-    name: 捕鱼达人·东海龙宫后端
+    name: 虾堡捕鱼达人后端
     version: 1.0.0
-    description: 国风深海主题休闲捕鱼游戏后端服务
+    description: 虾堡捕鱼达人游戏后端服务
     author: 后端架构组
 
 # 游戏配置
