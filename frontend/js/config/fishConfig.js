@@ -92,6 +92,7 @@ export const FishConfig = {
             schoolFish: false,
             depth: 'mid',
             imagePath: 'assets/fish/manta.png',
+            imageScale: 2.0,                 // 宽扁鱼，放大贴图避免翼展被裁剪
             spawnDirections: ['left', 'right'],
             speedRange: [70, 130]
         },
@@ -163,6 +164,7 @@ export const FishConfig = {
             glow: true,
             lureColor: '#00FF7F',
             imagePath: 'assets/fish/anglerfish.png',
+            imageScale: 2.0,                 // 宽扁鱼，放大贴图避免触须/吻部被裁剪
             spawnDirections: ['left', 'right'],
             speedRange: [40, 75]
         },
@@ -185,6 +187,7 @@ export const FishConfig = {
             schoolFish: false,
             depth: 'far',
             imagePath: 'assets/fish/blackdragon.png',
+            imageScale: 2.2,                 // 长鱼，放大贴图避免长尾/龙身被裁剪
             spawnDirections: ['left', 'right'],
             speedRange: [60, 120]
         },
@@ -207,6 +210,7 @@ export const FishConfig = {
             schoolFish: false,
             depth: 'mid',
             imagePath: 'assets/fish/goldendragon.png',
+            imageScale: 2.2,                 // 长鱼，放大贴图避免长尾/龙身被裁剪
             spawnDirections: ['left', 'right'],
             speedRange: [50, 90]
         },
@@ -234,6 +238,7 @@ export const FishConfig = {
             bossWarningDuration: 3,       // BOSS 出场预警时长（秒）
             bossDisperseRadius: 600,      // BOSS 驱散小鱼半径
             imagePath: 'assets/fish/boss-golden-dragon.png',
+            imageScale: 2.5,                // BOSS完整龙身，放大贴图确保从头到尾完整显示
             spawnDirections: ['top', 'right'],
             speedRange: [35, 55]
         },
@@ -260,6 +265,7 @@ export const FishConfig = {
             glow: true,
             glowColor: '#00FFFF',
             imagePath: 'assets/fish/electriceel.png',
+            imageScale: 2.2,                 // 长鱼，放大贴图避免鳗身被裁剪
             spawnDirections: ['left', 'right', 'top', 'bottom'],
             speedRange: [70, 130]
         },
@@ -789,10 +795,10 @@ export const FishConfig = {
 
     // ===== 生成系统配置 =====
     spawnSystem: {
-        minInterval: 0.8,                   // 最小生成间隔（秒）
-        maxInterval: 2.5,                    // 最大生成间隔（秒）
-        schoolChance: 0.35,                  // 结群鱼类生成鱼群的概率
-        maxFishPerSpawn: 3,                 // 单次最多生成鱼数
+        minInterval: 0.5,                   // 最小生成间隔（秒）
+        maxInterval: 1.5,                    // 最大生成间隔（秒）
+        schoolChance: 0.45,                  // 结群鱼类生成鱼群的概率
+        maxFishPerSpawn: 5,                 // 单次最多生成鱼数
         outOfBoundsMargin: 100,              // 出框判定边距（像素）
     },
 

@@ -22,7 +22,7 @@ export class FishManager {
         this.schools = [];
         this._spawnTimer = 0;
         this._bossTimer = 0;
-        this._maxFish = 25;
+        this._maxFish = 35;
         this._currentLevel = 1;
         this._bossEnabled = false;
         this._bossSpawnInterval = 60;
@@ -33,9 +33,9 @@ export class FishManager {
 
         // ===== 性能优化：Fish 对象池 =====
         this._fishPool = [];               // 空闲 Fish 对象栈
-        this._maxPoolSize = 60;            // 池最大容量（含在途复用）
-        // 预热：预分配 20 个 Fish 对象
-        for (let i = 0; i < 20; i++) {
+        this._maxPoolSize = 80;            // 池最大容量（含在途复用）
+        // 预热：预分配 40 个 Fish 对象
+        for (let i = 0; i < 40; i++) {
             this._fishPool.push(new Fish());
         }
 
@@ -50,7 +50,7 @@ export class FishManager {
 
         // ===== 性能优化：动态鱼数倍率 =====
         this._fishMultiplier = 1.0;       // 当前鱼数倍率（FPS 自适应调整）
-        this._baseMaxFish = 25;           // 关卡设定的基础上限
+        this._baseMaxFish = 35;           // 关卡设定的基础上限
     }
 
     /**
@@ -141,7 +141,13 @@ export class FishManager {
     update(dt, gameWidth, gameHeight, bullets = []) {
         // 生成普通鱼（随机间隔，一次可生成 1~maxFishPerSpawn 条）
         this._spawnTimer += dt;
-        if (this._spawnTimer >= this._nextSpawnInterval && this.fishes.length < this._maxFish) {
+        // 最低鱼数保障：场上鱼数低于20条时立即补生成，不等待 spawnTimer
+        if (this.fishes.length < 20 && this.fishes.length < this._maxFish) {
+            this._spawnTimer = 0;
+            const sys = FishConfig.spawnSystem;
+            this._nextSpawnInterval = Utils.random(sys.minInterval, sys.maxInterval);
+            this._spawnFish(gameWidth, gameHeight);
+        } else if (this._spawnTimer >= this._nextSpawnInterval && this.fishes.length < this._maxFish) {
             this._spawnTimer = 0;
             const sys = FishConfig.spawnSystem;
             this._nextSpawnInterval = Utils.random(sys.minInterval, sys.maxInterval);

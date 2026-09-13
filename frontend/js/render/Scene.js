@@ -26,7 +26,8 @@ export class Scene {
 
         // 预生成背景元素
         this._coralColumns = this._generateCoralColumns();
-        this._seaweeds = this._generateSeaweeds();
+        // 程序化假海草已移除：不再预生成（保留 _generateSeaweeds 方法定义以备引用）
+        // this._seaweeds = this._generateSeaweeds();
         this._palaceLights = this._generatePalaceLights();
         // v2：远景山脉轮廓 / 近景剪影 / 远景鱼群
         this._farRidges = this._generateFarRidges();
@@ -346,17 +347,17 @@ export class Scene {
         ctx.save();
         ctx.translate(offset.x, offset.y);
 
-        // 中景珊瑚柱
-        for (const col of this._coralColumns) {
-            if (col.type !== 'dragon_pillar') {
-                this._renderCoralColumn(ctx, col, colors);
-            }
-        }
+        // 中景珊瑚柱：仅保留龙柱(dragon_pillar)，移除程序化线条假珊瑚
+        // for (const col of this._coralColumns) {
+        //     if (col.type !== 'dragon_pillar') {
+        //         this._renderCoralColumn(ctx, col, colors);
+        //     }
+        // }
 
-        // 海草
-        for (const seaweed of this._seaweeds) {
-            this._renderSeaweed(ctx, seaweed);
-        }
+        // 程序化假海草已移除（保留 _generateSeaweeds 定义，仅不再渲染）
+        // for (const seaweed of this._seaweeds) {
+        //     this._renderSeaweed(ctx, seaweed);
+        // }
 
         // 中景层雾（浓度 0.2，比远景淡）
         const fogRgb = Utils.hexToRgb(colors.fog);
@@ -400,26 +401,27 @@ export class Scene {
         for (const s of this._nearSilhouettes) {
             const x = (((s.x - this._scrollOffset * 0.9) % (this.width + 200)) + this.width + 200) % (this.width + 200) - 100;
             if (s.type === 'rock') {
-                // 近景岩石剪影
+                // 近景岩石剪影（保留）
                 ctx.fillStyle = '#05101E';
                 ctx.beginPath();
                 ctx.ellipse(x, this.height, s.w, s.h, 0, Math.PI, 0);
                 ctx.fill();
-            } else {
-                // 近景海草剪影（多级摆动 + 水流方向影响）
-                ctx.strokeStyle = '#04182A';
-                ctx.lineWidth = s.w * 0.5;
-                ctx.lineCap = 'round';
-                ctx.beginPath();
-                ctx.moveTo(x, this.height);
-                for (let i = 1; i <= 4; i++) {
-                    const t = i / 4;
-                    const sway = Math.sin(this._time * 1.2 + s.phase + i * 0.6) * 18 * t;
-                    const flow = this._waterDirection * 10 * t * t;
-                    ctx.lineTo(x + sway + flow, this.height - s.h * t);
-                }
-                ctx.stroke();
             }
+            // 近景海草剪影（程序化假海草）已移除，仅保留岩石剪影
+            // else {
+            //     ctx.strokeStyle = '#04182A';
+            //     ctx.lineWidth = s.w * 0.5;
+            //     ctx.lineCap = 'round';
+            //     ctx.beginPath();
+            //     ctx.moveTo(x, this.height);
+            //     for (let i = 1; i <= 4; i++) {
+            //         const t = i / 4;
+            //         const sway = Math.sin(this._time * 1.2 + s.phase + i * 0.6) * 18 * t;
+            //         const flow = this._waterDirection * 10 * t * t;
+            //         ctx.lineTo(x + sway + flow, this.height - s.h * t);
+            //     }
+            //     ctx.stroke();
+            // }
         }
 
         ctx.restore();

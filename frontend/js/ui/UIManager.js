@@ -584,7 +584,7 @@ export class UIManager {
                 </div>
             </div>
             <div class="stats-footer">
-                <p>平均每击杀金币：${s.avgCoinsPerKill || 0}</p>
+                <p>平均每击杀金币：${Utils.formatCoin(s.avgCoinsPerKill || 0)}</p>
                 <p>本次游戏时长：${Math.floor((s.sessionDuration || 0) / 60)}分${(s.sessionDuration || 0) % 60}秒</p>
             </div>
         `;
@@ -1398,7 +1398,7 @@ export class UIManager {
                 ${[6, 30, 68, 128, 328, 648].map(price => `
                     <div class="recharge-item">
                         <div class="recharge-amount">¥${price}</div>
-                        <div class="recharge-coins">${price * 1000}金币</div>
+                        <div class="recharge-coins">${Utils.formatCoin(price * 1000)}金币</div>
                         <button class="recharge-btn">充值</button>
                     </div>
                 `).join('')}

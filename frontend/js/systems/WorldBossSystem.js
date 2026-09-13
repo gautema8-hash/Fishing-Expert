@@ -95,7 +95,7 @@ export class WorldBossSystem {
                 reward,
                 playerDamage: this.playerDamage
             });
-            this.eventBus.emit(Events.SHOW_TOAST, `🎉 世界BOSS被击杀！排名第${rank}，获得${reward}金币！`);
+            this.eventBus.emit(Events.SHOW_TOAST, `🎉 世界BOSS被击杀！排名第${rank}，获得${Utils.formatCoin(reward)}金币！`);
         } else {
             this.eventBus.emit('worldboss:end', {
                 killed: false,

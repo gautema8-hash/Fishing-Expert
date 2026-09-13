@@ -3,6 +3,7 @@
  * 公会信息、成员管理、公会商店、公会BOSS、贡献度
  * 社交留存核心模块
  */
+import { Utils } from '../core/Utils.js';
 import { Events } from '../core/EventBus.js';
 
 // Mock公会数据
@@ -170,7 +171,7 @@ export class GuildSystem {
             // BOSS被击杀
             this.economy.addCoins(this.boss.reward.coins, 'guild_boss');
             this.economy.addDiamonds(this.boss.reward.diamonds);
-            this.eventBus.emit(Events.SHOW_TOAST, `公会BOSS被击杀！获得${this.boss.reward.coins}金币+${this.boss.reward.diamonds}钻石！`);
+            this.eventBus.emit(Events.SHOW_TOAST, `公会BOSS被击杀！获得${Utils.formatCoin(this.boss.reward.coins)}金币+${this.boss.reward.diamonds}钻石！`);
             return { success: true, killed: true, message: 'BOSS击杀！' };
         }
 

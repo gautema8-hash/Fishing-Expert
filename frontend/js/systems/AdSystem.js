@@ -3,6 +3,7 @@
  * 模拟观看广告获得奖励（金币/道具/钻石）
  * 可配置开关，不强制观看
  */
+import { Utils } from '../core/Utils.js';
 import { Events } from '../core/EventBus.js';
 
 export const AdRewardType = {
@@ -99,7 +100,7 @@ export class AdSystem {
         switch (rewardType) {
             case AdRewardType.COINS:
                 this.economy.addCoins(config.amount, 'ad');
-                this.eventBus.emit(Events.SHOW_TOAST, `获得 ${config.amount} 金币！`);
+                this.eventBus.emit(Events.SHOW_TOAST, `获得 ${Utils.formatCoin(config.amount)} 金币！`);
                 break;
             case AdRewardType.DIAMONDS:
                 this.economy.addDiamonds(config.amount);

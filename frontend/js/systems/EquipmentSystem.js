@@ -3,6 +3,7 @@
  * 4部位装备（武器/护甲/饰品/宝物）、4品质（普通/稀有/史诗/传说）
  * 装备强化、装备抽卡、属性加成
  */
+import { Utils } from '../core/Utils.js';
 import { Events } from '../core/EventBus.js';
 
 // 装备池配置
@@ -210,7 +211,7 @@ export class EquipmentSystem {
         this.inventory.splice(index, 1);
         delete this.enhanceLevels[uid];
 
-        this.eventBus.emit(Events.SHOW_TOAST, `分解获得 ${reward} 金币`);
+        this.eventBus.emit(Events.SHOW_TOAST, `分解获得 ${Utils.formatCoin(reward)} 金币`);
         return true;
     }
 

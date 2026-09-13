@@ -1054,7 +1054,9 @@ export class Fish {
         }
 
         // 图片尺寸：以 this.size 为基准宽度，高度按原始比例
-        const imgW = this.size * 1.6;
+        // 宽扁鱼/长鱼可通过 config.imageScale 放大贴图，避免身体被 1.6 倍基准宽度裁剪
+        const imageScale = (this.config && this.config.imageScale) ? this.config.imageScale : 1.6;
+        const imgW = this.size * imageScale;
         const ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
             ? img.naturalHeight / img.naturalWidth : 0.6;
         const imgH = imgW * ratio;
@@ -1081,7 +1083,7 @@ export class Fish {
      * 获取碰撞半径
      */
     getCollisionRadius() {
-        return this.size * this._depthScale * 0.5;
+        return this.size * this._depthScale * 0.6;
     }
 
     get isBoss() {

@@ -318,7 +318,9 @@ export class BossDragonKing extends Fish {
         ctx.globalCompositeOperation = 'source-over';
 
         // ===== 绘制金龙图片 =====
-        const imgW = this.size * 1.8;
+        // 完整龙身需要更大显示尺寸，使用 config.imageScale（缺省2.2）替代硬编码1.8
+        const bossImageScale = (this.config && this.config.imageScale) ? this.config.imageScale : 2.2;
+        const imgW = this.size * bossImageScale;
         const ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
             ? img.naturalHeight / img.naturalWidth : 0.8;
         const imgH = imgW * ratio;
@@ -587,6 +589,7 @@ export class BossDragonKing extends Fish {
     }
 
     getCollisionRadius() {
-        return this.size * 0.6;
+        // BOSS完整龙身较大，碰撞半径放大以覆盖蜿蜒的龙身各段
+        return this.size * 0.8;
     }
 }

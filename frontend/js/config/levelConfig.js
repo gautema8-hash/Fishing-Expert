@@ -44,7 +44,7 @@ export const LevelConfig = {
             bossScoreMultiplier: 1 + (level - 1) * b.bossScoreGrowth,
             highValueFishBonus: (level - 1) * b.highValueFishGrowth,
             fishDensityMultiplier: 1 + (level - 1) * b.fishDensityGrowth,
-            maxFish: 20 + (level - 1) * b.maxFishGrowth,
+            maxFish: 30 + (level - 1) * b.maxFishGrowth,
             bossSpawnInterval: b.bossSpawnInterval,
             bossEnabled: level >= b.bossSpawnMinLevel
         };
