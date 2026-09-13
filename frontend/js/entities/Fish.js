@@ -10,6 +10,11 @@
 import { Utils } from '../core/Utils.js';
 import { FishConfig } from '../config/fishConfig.js';
 import { VerletSystem } from '../render/VerletPhysics.js';
+import { FishSkeleton } from '../animation/FishSkeleton.js';
+import { skeletalFishRenderer } from '../animation/SkeletalFishRenderer.js';
+import { turtleRenderer } from '../animation/TurtleRenderer.js';
+import { octopusRenderer } from '../animation/OctopusRenderer.js';
+import { jellyfishRenderer } from '../animation/JellyfishRenderer.js';
 
 export class Fish {
     constructor() {
@@ -77,6 +82,11 @@ export class Fish {
         // ===== 新增：图片渲染支持（失败自动降级为程序化绘制）=====
         this._image = null;          // 当前鱼的图片对象
         this._useImage = false;      // 是否使用图片渲染
+
+        // ===== 新增：骨骼动画系统（图片切片+骨骼变形）=====
+        this._skeleton = null;       // FishSkeleton 实例
+        this._useSkeletal = false;   // 骨骼动画是否可用
+        this._creatureType = 'fish'; // fish / turtle / octopus / jellyfish / dragon
     }
 
     /**
@@ -138,6 +148,9 @@ export class Fish {
         this._image = null;
         this._useImage = false;
         this._tryAcquireImage();
+
+        // 初始化骨骼动画系统
+        this._initSkeleton();
     }
 
     /**
@@ -162,6 +175,60 @@ export class Fish {
             this._useImage = false;
             this._image = null;
         }
+    }
+
+    /**
+     * 初始化骨骼动画系统
+     * 根据生物类型创建对应骨架：fish(鱼类脊椎) / turtle / octopus / jellyfish
+     * 骨骼动画失败时自动降级为静态图片渲染
+     * 性能优化：复用已有骨骼实例（对象池），远景鱼降级为静态图片
+     */
+    _initSkeleton() {
+        try {
+            // 检测生物类型
+            this._creatureType = this._detectCreatureType();
+
+            // 远景鱼（depth=far）或极小的鱼降级为静态图片，节省性能
+            if ((this.config.depth === 'far' && this.size < 80) || this.size < 24) {
+                this._skeleton = null;
+                this._useSkeletal = false;
+                return;
+            }
+
+            // 目前所有鱼类使用 FishSkeleton（脊椎S形摆动）
+            if (this._creatureType === 'fish' || this._creatureType === 'dragon') {
+                if (this._skeleton && this._skeleton.configure) {
+                    // 复用已有骨骼实例（对象池优化）
+                    this._skeleton.configure(this.config, this.size);
+                } else {
+                    this._skeleton = new FishSkeleton(this.config, this.size);
+                }
+                this._skeleton.setAnimParams(FishConfig.boneAnimation, FishConfig.animStates);
+                this._useSkeletal = true;
+            } else {
+                // 特殊生物由专用渲染器处理
+                this._skeleton = null;
+                this._useSkeletal = false;
+            }
+        } catch (e) {
+            console.warn(`[Fish] Skeleton init failed for ${this.type}:`, e);
+            this._skeleton = null;
+            this._useSkeletal = false;
+        }
+    }
+
+    /**
+     * 检测生物类型（根据鱼的 type/id 判断）
+     */
+    _detectCreatureType() {
+        const t = this.type;
+        if (t === 'turtle') return 'turtle';
+        if (t === 'octopus' || t === 'dumbo_octopus' || t === 'squid' || t === 'glass_squid' || t === 'cuttlefish') return 'octopus';
+        if (t === 'jellyfish' || t === 'splitfish') return 'jellyfish';
+        if (t === 'dragonking' || t === 'goldendragon' || t === 'blackdragon') return 'dragon';
+        if (t === 'crab' || t === 'lobster' || t === 'giant_isopod') return 'crustacean';
+        if (t === 'starfish' || t === 'sea_urchin' || t === 'sea_cucumber') return 'echinoderm';
+        return 'fish';
     }
 
     /**
@@ -275,6 +342,16 @@ export class Fish {
 
         // 状态机切换
         this._updateAnimState();
+
+        // 更新骨骼动画（驱动图片切片变形）
+        if (this._skeleton && this._useSkeletal) {
+            this._skeleton.update(dt, {
+                state: this.animState,
+                speedRatio: this.speed / this.baseSpeed,
+                turnRate: this._turnRate,
+                time: this._time
+            });
+        }
 
         // 鱼鳞闪烁：大鱼偶发自发光点
         if (this.size > 50 && this._time > this._nextSparkTime) {
@@ -479,20 +556,62 @@ export class Fish {
     }
 
     /**
-     * 渲染鱼（骨骼动画 + 伪3D光影 + Verlet 鱼鳍）
+     * 渲染鱼（骨骼动画切片变形 + 伪3D光影 + Verlet 鱼鳍）
+     * 渲染优先级：骨骼切片动画（图片+骨骼）> 静态图片 > 程序化绘制
      */
     render(ctx) {
         if (!this._active) return;
 
-        // ===== 图片渲染路径：图片就绪时优先使用 =====
+        // ===== 图片渲染路径：图片就绪时使用骨骼切片变形动画 =====
         if (this._useImage && this._image) {
+            // 特殊生物专用渲染器（乌龟划水/章鱼触手/水母伞盖）
+            try {
+                if (this._creatureType === 'turtle') {
+                    if (turtleRenderer.render(ctx, this, this._image)) return;
+                } else if (this._creatureType === 'octopus') {
+                    if (octopusRenderer.render(ctx, this, this._image)) return;
+                } else if (this._creatureType === 'jellyfish') {
+                    if (jellyfishRenderer.render(ctx, this, this._image)) return;
+                }
+            } catch (e) {
+                console.warn(`[Fish] Special renderer failed for ${this.type}:`, e);
+            }
+
+            // 鱼类/龙类：骨骼切片变形动画
+            if (this._useSkeletal && this._skeleton) {
+                try {
+                    const ok = skeletalFishRenderer.render(ctx, this, this._skeleton, this._image);
+                    if (ok) return;
+                } catch (e) {
+                    // 骨骼渲染失败，降级为静态图片
+                    console.warn(`[Fish] Skeletal render failed for ${this.type}:`, e);
+                }
+            }
+            // 降级：静态图片渲染
             this._renderImage(ctx);
             return;
         }
-        // 图片异步加载可能晚于 init，此处惰性重试（加载完成后自动切换到图片渲染）
+        // 图片异步加载可能晚于 init，此处惰性重试
         if (!this._useImage && this.config && this.config.imagePath) {
             this._tryAcquireImage();
             if (this._useImage && this._image) {
+                // 特殊生物专用渲染器
+                try {
+                    if (this._creatureType === 'turtle') {
+                        if (turtleRenderer.render(ctx, this, this._image)) return;
+                    } else if (this._creatureType === 'octopus') {
+                        if (octopusRenderer.render(ctx, this, this._image)) return;
+                    } else if (this._creatureType === 'jellyfish') {
+                        if (jellyfishRenderer.render(ctx, this, this._image)) return;
+                    }
+                } catch (e) { /* fall through */ }
+
+                if (this._useSkeletal && this._skeleton) {
+                    try {
+                        const ok = skeletalFishRenderer.render(ctx, this, this._skeleton, this._image);
+                        if (ok) return;
+                    } catch (e) { /* fall through */ }
+                }
                 this._renderImage(ctx);
                 return;
             }

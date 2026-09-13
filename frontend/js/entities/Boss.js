@@ -5,6 +5,9 @@
  */
 import { Fish } from './Fish.js';
 import { Utils } from '../core/Utils.js';
+import { FishSkeleton } from '../animation/FishSkeleton.js';
+import { skeletalFishRenderer } from '../animation/SkeletalFishRenderer.js';
+import { FishConfig } from '../config/fishConfig.js';
 
 export class BossDragonKing extends Fish {
     constructor() {
@@ -40,6 +43,7 @@ export class BossDragonKing extends Fish {
         this._sparkles = [];
         this._dirTimer = 15;
         this._dirBias = 0;
+        this._dragonSkeleton = null;   // 金龙专用骨骼（对象池复用时重建）
     }
 
     init(x, y, direction = 1, hpMultiplier = 1, scoreMultiplier = 1, eventBus = null) {
@@ -62,6 +66,20 @@ export class BossDragonKing extends Fish {
                 segments: 8,
                 phase: Math.random() * Math.PI * 2
             });
+        }
+
+        // 金龙专用骨骼：龙身很长，用更多脊椎节（16节）让 S 形波浪更细腻
+        this._dragonSkeleton = null;
+        try {
+            this._dragonSkeleton = new FishSkeleton(this.config, this.size);
+            // 覆盖节数为 16，龙身更长，波浪更平滑
+            this._dragonSkeleton.numSegments = 16;
+            this._dragonSkeleton.bodyLength = this.size * (this.config.imageScale || 2.8);
+            this._dragonSkeleton.segmentLength = this._dragonSkeleton.bodyLength / 16;
+            this._dragonSkeleton.setAnimParams(FishConfig.boneAnimation, FishConfig.animStates);
+        } catch (e) {
+            console.warn('[Boss] Dragon skeleton init failed:', e);
+            this._dragonSkeleton = null;
         }
     }
 
@@ -152,6 +170,16 @@ export class BossDragonKing extends Fish {
         if (this.x < -halfBoss) { this.x = -halfBoss; this.targetAngle = 0; }
         if (this.x > gameWidth + halfBoss) { this.x = gameWidth + halfBoss; this.targetAngle = Math.PI; }
         this.y = Utils.clamp(this.y, -this.size * 0.5, gameHeight - this.size * 0.5);
+
+        // 更新金龙骨骼脊椎波动（冲撞时用 fast 状态，摆得更快更猛）
+        if (this._dragonSkeleton) {
+            this._dragonSkeleton.update(dt, {
+                state: this._isCharging ? 'fast' : 'swim',
+                speedRatio: this.speed / this.baseSpeed,
+                turnRate: 0,
+                time: this._time
+            });
+        }
     }
 
     render(ctx) {
@@ -171,21 +199,22 @@ export class BossDragonKing extends Fish {
             return;
         }
 
-        ctx.save();
-        ctx.globalAlpha = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer) : 1;
-        // 整体缓慢上下浮动，模拟水中悬浮（与游进速度解耦）
-        const bobY = Math.sin(this._time * 0.8) * 15;
-        ctx.translate(this.x, this.y + bobY);
-        ctx.rotate(this.angle);
-
         // ===== 图片渲染路径：AI金龙图片就绪时优先使用（超逼真商业级）=====
         if (!this._useImage && this.config && this.config.imagePath) {
             this._tryAcquireImage();
         }
         if (this._useImage && this._image) {
-            this._renderBossImage(ctx);
+            // 骨骼切片驱动龙身真实波浪扭动（渲染器自管世界变换）
+            this._renderBossSkeletal(ctx);
         } else {
             // ===== 程序化绘制（fallback，保留原有骨骼动画龙）=====
+            ctx.save();
+            ctx.globalAlpha = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer) : 1;
+            // 整体缓慢上下浮动，模拟水中悬浮（与游进速度解耦）
+            const bobY = Math.sin(this._time * 0.8) * 15;
+            ctx.translate(this.x, this.y + bobY);
+            ctx.rotate(this.angle);
+
             const cfg = this.config;
             const segments = cfg.boneSegments;
             const segmentLength = this.size / segments * 0.8;
@@ -221,19 +250,11 @@ export class BossDragonKing extends Fish {
 
             // 绘制龙须
             this._renderWhiskers(ctx, bonePositions[0]);
-        }
 
-        // 受击闪烁（图片模式用整体金光，程序化模式沿骨骼闪烁）
-        if (this._hitFlash > 0) {
-            ctx.globalCompositeOperation = 'lighter';
-            ctx.globalAlpha = this._hitFlash * 0.4;
-            if (this._useImage && this._image) {
-                const imgW = this.size * 1.8;
-                ctx.fillStyle = '#FFD700';
-                ctx.beginPath();
-                ctx.ellipse(0, 0, imgW * 0.5, this.size * 0.5, 0, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
+            // 受击闪烁（程序化模式沿骨骼闪烁）
+            if (this._hitFlash > 0) {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = this._hitFlash * 0.4;
                 for (const pos of bonePositions) {
                     ctx.fillStyle = '#FFD700';
                     ctx.beginPath();
@@ -241,13 +262,126 @@ export class BossDragonKing extends Fish {
                     ctx.fill();
                 }
             }
+
+            // 冲撞特效
+            if (this._isCharging) {
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = 0.5;
+                const headX = bonePositions[0].x;
+                const headY = 0;
+                const gradient = ctx.createRadialGradient(headX, headY, 0, headX, headY, this.size);
+                gradient.addColorStop(0, 'rgba(255, 100, 50, 0.6)');
+                gradient.addColorStop(1, 'rgba(255, 100, 50, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(headX, headY, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 冲撞预警特效：红色闪烁光环
+            if (this._isTelegraphing) {
+                ctx.globalCompositeOperation = 'lighter';
+                const flash = Math.sin(this._time * 20) * 0.3 + 0.5;
+                ctx.globalAlpha = flash;
+                const headX = bonePositions[0].x;
+                const headY = 0;
+                // 预警光环
+                ctx.strokeStyle = '#FF4444';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(headX, headY, this.size * 1.2 + Math.sin(this._time * 15) * 10, 0, Math.PI * 2);
+                ctx.stroke();
+                // 冲撞方向指示线
+                ctx.strokeStyle = `rgba(255, 68, 68, ${flash * 0.5})`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(headX, headY);
+                ctx.lineTo(headX + Math.cos(this._chargeDirection) * 300, headY + Math.sin(this._chargeDirection) * 300);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
+            }
+
+            ctx.restore();
+        }
+
+        // BOSS 血条（在屏幕坐标绘制）
+        if (this.state === 'alive' || this.state === 'dying') {
+            this._renderHealthBar(ctx);
+        }
+    }
+
+    /**
+     * 金龙骨骼切片渲染：用 FishSkeleton 脊椎 S 形波驱动图片切片变形，
+     * 实现龙身真实波浪扭动。skeletalFishRenderer.render 内部已完成
+     * ctx.save/translate(this.x,this.y)/rotate(this.angle)/restore，
+     * 因此调用它时外层不要再包 translate/rotate；额外特效在其后单独绘制。
+     */
+    _renderBossSkeletal(ctx) {
+        const t = this._time;
+        const dyingAlpha = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer) : 1;
+
+        // ===== 1. 骨骼切片龙身（自管世界变换，含金色外光晕、胸鳍、沿脊椎受击闪白）=====
+        let ok = false;
+        if (this._dragonSkeleton) {
+            try {
+                ok = skeletalFishRenderer.render(ctx, this, this._dragonSkeleton, this._image);
+            } catch (e) {
+                console.warn('[Boss] skeletal render failed, fallback to static image:', e);
+                ok = false;
+            }
+        }
+
+        // ===== 2. 叠加特效（鱼的局部坐标系：单独 save/translate/rotate）=====
+        ctx.save();
+        ctx.globalAlpha = dyingAlpha;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+
+        if (!ok) {
+            // 骨骼切片失败：降级为静态金龙图片（_renderBossImage 自含摆动/呼吸/光晕/闪光/须）
+            this._renderBossImage(ctx);
+        } else {
+            // 龙鳞闪光粒子
+            this._updateAndRenderSparkles(ctx, t);
+
+            // 水中光影流动（caustics 光斑扫过龙身）
+            ctx.globalCompositeOperation = 'lighter';
+            const causticX = Math.sin(t * 0.5) * this.size * 0.3;
+            const causticY = Math.cos(t * 0.7) * this.size * 0.15;
+            const causticR = this.size * 0.9;
+            const causticGrad = ctx.createRadialGradient(causticX, causticY, 0, causticX, causticY, causticR);
+            causticGrad.addColorStop(0, 'rgba(190, 225, 255, 0.08)');
+            causticGrad.addColorStop(0.5, 'rgba(160, 210, 255, 0.04)');
+            causticGrad.addColorStop(1, 'rgba(160, 210, 255, 0)');
+            ctx.fillStyle = causticGrad;
+            ctx.beginPath();
+            ctx.arc(causticX, causticY, causticR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+
+            // 飘动龙须
+            this._renderImageWhiskers(ctx, t);
+        }
+
+        // 受击闪烁（图片模式整体金光）
+        if (this._hitFlash > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = this._hitFlash * 0.4;
+            const imgW = this.size * 1.8;
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, imgW * 0.5, this.size * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = dyingAlpha;
         }
 
         // 冲撞特效
         if (this._isCharging) {
             ctx.globalCompositeOperation = 'lighter';
             ctx.globalAlpha = 0.5;
-            const headX = (this._useImage && this._image) ? this.size * 0.7 : bonePositions[0].x;
+            const headX = this.size * 0.7;
             const headY = 0;
             const gradient = ctx.createRadialGradient(headX, headY, 0, headX, headY, this.size);
             gradient.addColorStop(0, 'rgba(255, 100, 50, 0.6)');
@@ -263,15 +397,13 @@ export class BossDragonKing extends Fish {
             ctx.globalCompositeOperation = 'lighter';
             const flash = Math.sin(this._time * 20) * 0.3 + 0.5;
             ctx.globalAlpha = flash;
-            const headX = (this._useImage && this._image) ? this.size * 0.7 : bonePositions[0].x;
+            const headX = this.size * 0.7;
             const headY = 0;
-            // 预警光环
             ctx.strokeStyle = '#FF4444';
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(headX, headY, this.size * 1.2 + Math.sin(this._time * 15) * 10, 0, Math.PI * 2);
             ctx.stroke();
-            // 冲撞方向指示线
             ctx.strokeStyle = `rgba(255, 68, 68, ${flash * 0.5})`;
             ctx.lineWidth = 2;
             ctx.setLineDash([10, 10]);
@@ -280,15 +412,10 @@ export class BossDragonKing extends Fish {
             ctx.lineTo(headX + Math.cos(this._chargeDirection) * 300, headY + Math.sin(this._chargeDirection) * 300);
             ctx.stroke();
             ctx.setLineDash([]);
-            ctx.globalAlpha = 1;
+            ctx.globalAlpha = dyingAlpha;
         }
 
         ctx.restore();
-
-        // BOSS 血条（在屏幕坐标绘制）
-        if (this.state === 'alive' || this.state === 'dying') {
-            this._renderHealthBar(ctx);
-        }
     }
 
     /**
