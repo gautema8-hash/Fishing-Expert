@@ -21,6 +21,8 @@ export class FishManager {
         this._bossEnabled = false;
         this._bossSpawnInterval = 60;
         this._frozen = false;
+        this._nextSpawnInterval = 2;       // 下一次生成间隔（随机）
+        this._recentFishTypes = [];        // 最近生成的鱼类（用于种类多样性）
     }
 
     /**
@@ -44,10 +46,12 @@ export class FishManager {
      * 更新所有鱼
      */
     update(dt, gameWidth, gameHeight, bullets = []) {
-        // 生成普通鱼
+        // 生成普通鱼（随机间隔，一次可生成 1~maxFishPerSpawn 条）
         this._spawnTimer += dt;
-        if (this._spawnTimer >= 2 && this.fishes.length < this._maxFish) {
+        if (this._spawnTimer >= this._nextSpawnInterval && this.fishes.length < this._maxFish) {
             this._spawnTimer = 0;
+            const sys = FishConfig.spawnSystem;
+            this._nextSpawnInterval = Utils.random(sys.minInterval, sys.maxInterval);
             this._spawnFish(gameWidth, gameHeight);
         }
 
@@ -99,25 +103,84 @@ export class FishManager {
     }
 
     _spawnFish(gameWidth, gameHeight) {
+        const sys = FishConfig.spawnSystem;
         const spawnList = FishConfig.getSpawnList(this._currentLevel);
-        const selected = Utils.weightedRandom(spawnList);
-        const fishType = selected.id;
-        const config = FishConfig.types[fishType];
 
-        // 结群鱼类生成鱼群
-        if (config.schoolFish && Math.random() < 0.4) {
-            this._spawnSchool(fishType, gameWidth, gameHeight);
-            return;
+        // 单次生成 1~maxFishPerSpawn 条，种类尽量多样
+        const count = Utils.randomInt(1, sys.maxFishPerSpawn || 3);
+        for (let n = 0; n < count; n++) {
+            if (this.fishes.length >= this._maxFish) break;
+
+            const selected = this._pickDiverseFish(spawnList);
+            const fishType = selected.id;
+            const config = FishConfig.types[fishType];
+            if (!config) continue;
+
+            // 结群鱼类按概率生成鱼群
+            if (config.schoolFish && Math.random() < (sys.schoolChance || 0.35)) {
+                this._spawnSchool(fishType, gameWidth, gameHeight);
+                continue;
+            }
+
+            // 四方向随机生成（参考鱼类 spawnDirections 偏好）
+            const dir = this._pickSpawnDirection(config.spawnDirections);
+            const pos = this._spawnPosByDirection(dir, gameWidth, gameHeight);
+
+            const fish = new Fish();
+            const side = Math.cos(pos.angle) >= 0 ? 1 : -1;
+            fish.init(fishType, pos.x, pos.y, side);
+            // init 只处理左右朝向，上下方向需手动覆盖 angle
+            fish.angle = pos.angle;
+            fish.targetAngle = pos.angle;
+
+            // 速度随机化（在 speedRange 范围内）
+            if (config.speedRange) {
+                fish.baseSpeed = Utils.random(config.speedRange[0], config.speedRange[1]);
+                fish.speed = fish.baseSpeed;
+            }
+
+            this.fishes.push(fish);
+            this.eventBus.emit('fish:spawn', fish);
         }
+    }
 
-        // 单条鱼
-        const fish = new Fish();
-        const side = Math.random() > 0.5 ? 1 : -1;
-        const x = side > 0 ? -50 : gameWidth + 50;
-        const y = Utils.random(80, gameHeight - 150);
-        fish.init(fishType, x, y, side);
-        this.fishes.push(fish);
-        this.eventBus.emit('fish:spawn', fish);
+    /**
+     * 根据鱼类出现方向偏好随机挑选一个方向（默认全方向）
+     */
+    _pickSpawnDirection(prefs) {
+        const dirs = (prefs && prefs.length) ? prefs : ['left', 'right', 'top', 'bottom'];
+        return dirs[Math.floor(Math.random() * dirs.length)];
+    }
+
+    /**
+     * 根据方向计算出生坐标与初始朝向角
+     */
+    _spawnPosByDirection(direction, gameWidth, gameHeight) {
+        switch (direction) {
+            case 'left':
+                return { x: -50, y: Utils.random(50, gameHeight - 50), angle: 0 };
+            case 'right':
+                return { x: gameWidth + 50, y: Utils.random(50, gameHeight - 50), angle: Math.PI };
+            case 'top':
+                return { x: Utils.random(50, gameWidth - 50), y: -50, angle: Math.PI / 2 };
+            case 'bottom':
+            default:
+                return { x: Utils.random(50, gameWidth - 50), y: gameHeight + 50, angle: -Math.PI / 2 };
+        }
+    }
+
+    /**
+     * 加权随机选鱼，同时降低与最近生成种类重复的概率
+     */
+    _pickDiverseFish(spawnList) {
+        let selected = Utils.weightedRandom(spawnList);
+        // 若刚生成过该类鱼，按概率重抽一次以提高多样性
+        if (this._recentFishTypes.includes(selected.id) && Math.random() < 0.6) {
+            selected = Utils.weightedRandom(spawnList);
+        }
+        this._recentFishTypes.push(selected.id);
+        if (this._recentFishTypes.length > 4) this._recentFishTypes.shift();
+        return selected;
     }
 
     /**
@@ -159,15 +222,19 @@ export class FishManager {
     _spawnSchool(fishType, gameWidth, gameHeight) {
         const config = FishConfig.types[fishType];
         const schoolSize = Utils.randomInt(config.schoolSize[0], config.schoolSize[1]);
-        const side = Math.random() > 0.5 ? 1 : -1;
-        const centerX = side > 0 ? -100 : gameWidth + 100;
-        const centerY = Utils.random(100, gameHeight - 200);
+        const dir = this._pickSpawnDirection(config.spawnDirections);
+        const pos = this._spawnPosByDirection(dir, gameWidth, gameHeight);
+
+        // 鱼群中心沿进入方向移动
+        const speed = config.speedRange
+            ? Utils.random(config.speedRange[0], config.speedRange[1])
+            : config.speed;
 
         const school = {
-            x: centerX,
-            y: centerY,
-            vx: side * config.speed,
-            vy: 0,
+            x: pos.x,
+            y: pos.y,
+            vx: Math.cos(pos.angle) * speed,
+            vy: Math.sin(pos.angle) * speed,
             type: fishType,
             fishes: []
         };
@@ -177,7 +244,11 @@ export class FishManager {
             const fish = new Fish();
             const offsetX = Utils.random(-80, 80);
             const offsetY = Utils.random(-50, 50);
-            fish.init(fishType, centerX + offsetX, centerY + offsetY, side);
+            const side = Math.cos(pos.angle) >= 0 ? 1 : -1;
+            fish.init(fishType, pos.x + offsetX, pos.y + offsetY, side);
+            // 上下方向需手动覆盖朝向
+            fish.angle = pos.angle;
+            fish.targetAngle = pos.angle;
             fish._school = school;
             fish._schoolOffset = { x: offsetX, y: offsetY };
             school.fishes.push(fish);
@@ -202,8 +273,9 @@ export class FishManager {
             school.x += school.vx * dt;
             school.y += Math.sin(Date.now() * 0.001) * 20 * dt;
 
-            // 边界反弹
-            if (school.x < -200 || school.x > gameWidth + 200) {
+            // 边界移除（x/y 任一方向出框即销毁鱼群）
+            if (school.x < -300 || school.x > gameWidth + 300 ||
+                school.y < -300 || school.y > gameHeight + 300) {
                 this.schools.splice(i, 1);
             }
         }
@@ -213,7 +285,11 @@ export class FishManager {
         const boss = new BossDragonKing();
         const hpMult = 1 + (this._currentLevel - 1) * 0.2;
         const scoreMult = 1 + (this._currentLevel - 1) * 0.15;
-        boss.init(gameWidth + 200, gameHeight * 0.4, -1, hpMult, scoreMult, this.eventBus);
+        // BOSS 从 top 或 right 随机入场（预警机制保持不变）
+        const fromTop = Math.random() < 0.5;
+        const startX = fromTop ? Utils.random(gameWidth * 0.3, gameWidth * 0.7) : gameWidth + 200;
+        const startY = fromTop ? -200 : gameHeight * 0.4;
+        boss.init(startX, startY, -1, hpMult, scoreMult, this.eventBus);
         this.boss = boss;
         this.eventBus.emit('boss:warning', boss);
 

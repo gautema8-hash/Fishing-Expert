@@ -59,7 +59,9 @@ export const GameConfig = {
         trailParticleInterval: 0.02,    // 拖尾粒子生成间隔
         critColor: '#FF6B35',           // 暴击炮弹颜色
         normalColor: '#36E0E8',         // 普通炮弹颜色
-        maxBullets: 50                  // 同屏最大炮弹数
+        maxBullets: 50,                 // 同屏最大炮弹数
+        maxBounces: 3,                  // 最大边界反弹次数
+        bounceSpeedDecay: 0.9           // 反弹后速度衰减倍率
     },
 
     // ===== 粒子系统 =====

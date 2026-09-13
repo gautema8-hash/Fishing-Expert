@@ -30,6 +30,9 @@ export class Bullet {
         this._targetFish = null;
         this._life = 5; // 最大存活时间
         this._explosionTimer = 0;
+        this._bounceCount = 0;          // 已反弹次数
+        this._bouncePulse = 0;          // 反弹缩放脉冲（视觉效果）
+        this._justBounced = false;      // 本帧是否刚反弹（供外部生成水花粒子）
     }
 
     init(config) {
@@ -47,6 +50,9 @@ export class Bullet {
         this._life = 5;
         this._trailTimer = 0;
         this._targetFish = config.targetFish || null;
+        this._bounceCount = 0;
+        this._bouncePulse = 0;
+        this._justBounced = false;
 
         const speed = GameConfig.bullet.baseSpeed * (1 + (this.level - 1) * 0.03);
         this.vx = Math.cos(this.angle) * speed;
@@ -91,11 +97,59 @@ export class Bullet {
             this._trailTimer = GameConfig.bullet.trailParticleInterval;
         }
 
-        // 边界检测（出界则死亡，在边界产生水波纹）
-        if (this.x < -20 || this.x > gameWidth + 20 || this.y < -20 || this.y > gameHeight + 20) {
-            this.state = 'dead';
-            this._active = false;
+        // 反弹脉冲衰减
+        this._bouncePulse = Math.max(0, this._bouncePulse - dt * 5);
+
+        // 边界反弹（出界不再直接销毁，而是反弹并衰减速度）
+        const maxBounces = GameConfig.bullet.maxBounces || 3;
+        const decay = GameConfig.bullet.bounceSpeedDecay || 0.9;
+        const margin = this.size;
+        let bounced = false;
+
+        // 左边界
+        if (this.x < margin) {
+            this.x = margin;
+            this.vx = Math.abs(this.vx) * decay;
+            bounced = true;
         }
+        // 右边界
+        if (this.x > gameWidth - margin) {
+            this.x = gameWidth - margin;
+            this.vx = -Math.abs(this.vx) * decay;
+            bounced = true;
+        }
+        // 上边界
+        if (this.y < margin) {
+            this.y = margin;
+            this.vy = Math.abs(this.vy) * decay;
+            bounced = true;
+        }
+        // 下边界
+        if (this.y > gameHeight - margin) {
+            this.y = gameHeight - margin;
+            this.vy = -Math.abs(this.vy) * decay;
+            bounced = true;
+        }
+
+        if (bounced) {
+            this._onBounce();
+            // 反弹后重新计算朝向（vx/vy 已改变）
+            this.angle = Math.atan2(this.vy, this.vx);
+            // 超过最大反弹次数则销毁
+            if (this._bounceCount >= maxBounces) {
+                this.state = 'dead';
+                this._active = false;
+            }
+        }
+    }
+
+    /**
+     * 反弹触发：计数、视觉脉冲、标记供外部生成水花
+     */
+    _onBounce() {
+        this._bounceCount++;
+        this._bouncePulse = 1;
+        this._justBounced = true;
     }
 
     /**
@@ -114,6 +168,11 @@ export class Bullet {
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(this.angle);
+        // 反弹缩放脉冲
+        if (this._bouncePulse > 0) {
+            const pulseScale = 1 + this._bouncePulse * 0.3;
+            ctx.scale(pulseScale, pulseScale);
+        }
 
         const color = this.isCrit ? GameConfig.bullet.critColor :
                       this.isRage ? '#FF6B35' : GameConfig.bullet.normalColor;
@@ -235,6 +294,10 @@ export class BulletManager {
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             const bullet = this.bullets[i];
             bullet.update(dt, gameWidth, gameHeight);
+            // 反弹标记供外部（Game/粒子系统）检测后重置
+            if (bullet._justBounced) {
+                bullet._justBounced = false;
+            }
             if (!bullet._active) {
                 this.bullets.splice(i, 1);
             }

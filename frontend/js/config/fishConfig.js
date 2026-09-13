@@ -23,7 +23,10 @@ export const FishConfig = {
             pathType: 'sine',              // 直线/正弦/环形/随机
             schoolFish: true,               // 是否结群
             schoolSize: [5, 12],            // 鱼群大小范围
-            depth: 'near'                   // 景深层级 near/mid/far
+            depth: 'near',                  // 景深层级 near/mid/far
+            imagePath: 'assets/fish/goldfish.png',  // 鱼类图片路径
+            spawnDirections: ['left', 'right', 'top', 'bottom'], // 出现方向偏好
+            speedRange: [80, 150]           // 生成速度范围 [min, max]
         },
         silverfish: {
             id: 'silverfish',
@@ -43,7 +46,10 @@ export const FishConfig = {
             pathType: 'linear',
             schoolFish: true,
             schoolSize: [8, 20],
-            depth: 'mid'
+            depth: 'mid',
+            imagePath: 'assets/fish/silverfish.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [120, 220]
         },
         turtle: {
             id: 'turtle',
@@ -62,7 +68,10 @@ export const FishConfig = {
             finColor: '#1E6B42',
             pathType: 'random',
             schoolFish: false,
-            depth: 'near'
+            depth: 'near',
+            imagePath: 'assets/fish/turtle.png',
+            spawnDirections: ['left', 'right'],
+            speedRange: [40, 80]
         },
         manta: {
             id: 'manta',
@@ -81,7 +90,10 @@ export const FishConfig = {
             finColor: '#2D3748',
             pathType: 'sine',
             schoolFish: false,
-            depth: 'mid'
+            depth: 'mid',
+            imagePath: 'assets/fish/manta.png',
+            spawnDirections: ['left', 'right'],
+            speedRange: [70, 130]
         },
         jellyfish: {
             id: 'jellyfish',
@@ -102,7 +114,10 @@ export const FishConfig = {
             schoolFish: true,
             schoolSize: [2, 5],
             depth: 'mid',
-            glow: true
+            glow: true,
+            imagePath: 'assets/fish/jellyfish.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [25, 55]
         },
         seahorse: {
             id: 'seahorse',
@@ -122,7 +137,10 @@ export const FishConfig = {
             pathType: 'erratic',
             schoolFish: true,
             schoolSize: [3, 8],
-            depth: 'near'
+            depth: 'near',
+            imagePath: 'assets/fish/seahorse.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [60, 120]
         },
         anglerfish: {
             id: 'anglerfish',
@@ -143,7 +161,10 @@ export const FishConfig = {
             schoolFish: false,
             depth: 'far',
             glow: true,
-            lureColor: '#00FF7F'
+            lureColor: '#00FF7F',
+            imagePath: 'assets/fish/anglerfish.png',
+            spawnDirections: ['left', 'right'],
+            speedRange: [40, 75]
         },
         blackdragon: {
             id: 'blackdragon',
@@ -162,7 +183,10 @@ export const FishConfig = {
             finColor: '#3D2E5C',
             pathType: 'sine',
             schoolFish: false,
-            depth: 'far'
+            depth: 'far',
+            imagePath: 'assets/fish/blackdragon.png',
+            spawnDirections: ['left', 'right'],
+            speedRange: [60, 120]
         },
         goldendragon: {
             id: 'goldendragon',
@@ -181,7 +205,10 @@ export const FishConfig = {
             finColor: '#B8860B',
             pathType: 'circle',
             schoolFish: false,
-            depth: 'mid'
+            depth: 'mid',
+            imagePath: 'assets/fish/goldendragon.png',
+            spawnDirections: ['left', 'right'],
+            speedRange: [50, 90]
         },
         dragonking: {
             id: 'dragonking',
@@ -203,7 +230,10 @@ export const FishConfig = {
             isBoss: true,
             depth: 'far',
             bossWarningDuration: 2,       // BOSS 出场预警时长（秒）
-            bossDisperseRadius: 500         // BOSS 驱散小鱼半径
+            bossDisperseRadius: 500,      // BOSS 驱散小鱼半径
+            imagePath: 'assets/fish/dragonking.png',
+            spawnDirections: ['top'],
+            speedRange: [40, 60]
         },
         // ===== 特殊鱼类 =====
         electriceel: {
@@ -226,7 +256,10 @@ export const FishConfig = {
             depth: 'mid',
             special: 'electric',           // 特殊行为：电击
             glow: true,
-            glowColor: '#00FFFF'
+            glowColor: '#00FFFF',
+            imagePath: 'assets/fish/electriceel.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [70, 130]
         },
         ghostfish: {
             id: 'ghostfish',
@@ -248,7 +281,10 @@ export const FishConfig = {
             depth: 'mid',
             special: 'invisible',          // 特殊行为：隐身
             glow: true,
-            glowColor: '#E8E8FF'
+            glowColor: '#E8E8FF',
+            imagePath: 'assets/fish/ghostfish.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [60, 120]
         },
         splitfish: {
             id: 'splitfish',
@@ -270,7 +306,10 @@ export const FishConfig = {
             depth: 'near',
             special: 'split',              // 特殊行为：分裂
             glow: true,
-            glowColor: '#FF69B4'
+            glowColor: '#FF69B4',
+            imagePath: 'assets/fish/splitfish.png',
+            spawnDirections: ['left', 'right', 'top', 'bottom'],
+            speedRange: [50, 90]
         }
     },
 
@@ -361,5 +400,22 @@ export const FishConfig = {
         tailLobeNodes: 4,                   // 尾鳍每叶边缘节点数
         waterForceX: 0.6,                   // 沿游向反向的水流阻力
         turbulenceY: 1.2                    // 垂直水流扰动幅度
+    },
+
+    // ===== 生成系统配置 =====
+    spawnSystem: {
+        minInterval: 0.8,                   // 最小生成间隔（秒）
+        maxInterval: 2.5,                    // 最大生成间隔（秒）
+        schoolChance: 0.35,                  // 结群鱼类生成鱼群的概率
+        maxFishPerSpawn: 3,                 // 单次最多生成鱼数
+        outOfBoundsMargin: 100,              // 出框判定边距（像素）
+    },
+
+    // ===== 炮弹反弹配置 =====
+    bulletBounce: {
+        maxBounces: 3,                       // 最大反弹次数
+        speedDecay: 0.9,                     // 反弹后速度衰减倍率
+        bounceScalePulse: 1.3,               // 反弹时缩放脉冲
+        bounceParticleCount: 8               // 反弹水花粒子数
     }
 };

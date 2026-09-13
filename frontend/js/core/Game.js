@@ -44,6 +44,7 @@ import { BackendSyncService } from '../api/BackendSyncService.js';
 import { UIManager } from '../ui/UIManager.js';
 import { TopBar, BottomBar, Sidebar } from '../ui/TopBar.js';
 import { GameConfig } from '../config/gameConfig.js';
+import { FishConfig } from '../config/fishConfig.js';
 
 export class Game {
     constructor(container) {
@@ -178,6 +179,18 @@ export class Game {
 
         // 设置关卡参数
         this.fishManager.setLevelParams(this.levelSystem.params);
+
+        // 后台非阻塞预加载鱼类图片（加载失败自动降级为程序化绘制）
+        try {
+            const fishTypes = Object.values(FishConfig.types).filter(t => t.imagePath);
+            this.resourceManager.preloadFishImages(fishTypes).then(({ failed }) => {
+                if (failed && failed.length) {
+                    console.warn('[Game] 部分鱼类图片未加载，将使用程序化绘制:', failed);
+                }
+            });
+        } catch (e) {
+            console.warn('[Game] 鱼类图片预加载失败，使用程序化绘制:', e);
+        }
 
         // 金币目标位置
         this.coinManager.setTarget(this.width * 0.5, 50);

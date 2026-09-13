@@ -9,6 +9,7 @@ export class ResourceManager {
         this._progressCallbacks = [];
         this._totalToLoad = 0;
         this._loadedCount = 0;
+        this._failedImages = new Set();   // 记录加载失败的图片路径
     }
 
     /**
@@ -79,6 +80,58 @@ export class ResourceManager {
      */
     get(url) {
         return this._cache.get(url) || null;
+    }
+
+    /**
+     * 批量预加载鱼类图片
+     * @param {Array<Object>} fishTypes - 鱼类配置对象数组，每个需含 imagePath 字段
+     * @returns {Promise<{loaded: string[], failed: string[]}>}
+     */
+    preloadFishImages(fishTypes) {
+        const loaded = [];
+        const failed = [];
+        const tasks = [];
+        for (const fish of fishTypes) {
+            const path = fish && fish.imagePath;
+            if (!path) continue;
+            if (this._failedImages.has(path)) {
+                failed.push(path);
+                continue;
+            }
+            if (this._cache.has(path)) {
+                loaded.push(path);
+                continue;
+            }
+            tasks.push(
+                this.load(path, 'image')
+                    .then(() => loaded.push(path))
+                    .catch(() => {
+                        this._failedImages.add(path);
+                        failed.push(path);
+                    })
+            );
+        }
+        return Promise.all(tasks).then(() => ({ loaded, failed }));
+    }
+
+    /**
+     * 获取已加载的鱼类图片
+     * @param {string} imagePath
+     * @returns {HTMLImageElement|null}
+     */
+    getFishImage(imagePath) {
+        if (!imagePath || this._failedImages.has(imagePath)) return null;
+        return this._cache.get(imagePath) || null;
+    }
+
+    /**
+     * 检查鱼类图片是否加载成功
+     * @param {string} imagePath
+     * @returns {boolean}
+     */
+    isFishImageLoaded(imagePath) {
+        if (!imagePath || this._failedImages.has(imagePath)) return false;
+        return this._cache.has(imagePath);
     }
 
     /**

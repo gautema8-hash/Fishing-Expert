@@ -72,6 +72,10 @@ export class Fish {
         // ===== 新增：鱼鳞闪烁粒子（自包含）=====
         this._scaleSparks = [];
         this._nextSparkTime = 0;
+
+        // ===== 新增：图片渲染支持（失败自动降级为程序化绘制）=====
+        this._image = null;          // 当前鱼的图片对象
+        this._useImage = false;      // 是否使用图片渲染
     }
 
     /**
@@ -128,6 +132,35 @@ export class Fish {
 
         // 构建鱼鳍 Verlet 物理链
         this._setupFinPhysics();
+
+        // 尝试获取鱼类图片（未加载/失败均降级为程序化绘制）
+        this._image = null;
+        this._useImage = false;
+        this._tryAcquireImage();
+    }
+
+    /**
+     * 尝试从全局 ResourceManager 获取已加载的鱼类图片
+     * 任何异常都降级为程序化绘制，保证游戏不白屏
+     */
+    _tryAcquireImage() {
+        try {
+            const imgPath = this.config && this.config.imagePath;
+            if (!imgPath) return;
+            const rm = (typeof window !== 'undefined' && window.__game && window.__game.resourceManager)
+                ? window.__game.resourceManager : null;
+            if (!rm || typeof rm.isFishImageLoaded !== 'function') return;
+            if (rm.isFishImageLoaded(imgPath)) {
+                const img = rm.getFishImage(imgPath);
+                if (img && img.complete && img.naturalWidth > 0) {
+                    this._image = img;
+                    this._useImage = true;
+                }
+            }
+        } catch (e) {
+            this._useImage = false;
+            this._image = null;
+        }
     }
 
     /**
@@ -393,22 +426,13 @@ export class Fish {
     }
 
     _handleBoundaries(gameWidth, gameHeight) {
-        const margin = this.size * 2;
-        if (this.x < -margin) {
-            this.x = -margin;
-            this.targetAngle = Utils.lerpAngle(this.targetAngle, 0, 0.1);
-        }
-        if (this.x > gameWidth + margin) {
-            this.x = gameWidth + margin;
-            this.targetAngle = Utils.lerpAngle(this.targetAngle, Math.PI, 0.1);
-        }
-        if (this.y < margin) {
-            this.y = margin;
-            this.targetAngle = Utils.lerpAngle(this.targetAngle, Math.PI / 2, 0.1);
-        }
-        if (this.y > gameHeight - margin * 2) {
-            this.y = gameHeight - margin * 2;
-            this.targetAngle = Utils.lerpAngle(this.targetAngle, -Math.PI / 2, 0.1);
+        // 出框即标记失效（不再拉回），由 FishManager 的 update 循环自动移除
+        const sys = FishConfig.spawnSystem;
+        const margin = (sys && sys.outOfBoundsMargin != null) ? sys.outOfBoundsMargin : this.size * 2;
+        if (this.x < -margin || this.x > gameWidth + margin ||
+            this.y < -margin || this.y > gameHeight + margin) {
+            this._active = false;
+            this.state = 'dead';
         }
     }
 
@@ -448,6 +472,21 @@ export class Fish {
     render(ctx) {
         if (!this._active) return;
 
+        // ===== 图片渲染路径：图片就绪时优先使用 =====
+        if (this._useImage && this._image) {
+            this._renderImage(ctx);
+            return;
+        }
+        // 图片异步加载可能晚于 init，此处惰性重试（加载完成后自动切换到图片渲染）
+        if (!this._useImage && this.config && this.config.imagePath) {
+            this._tryAcquireImage();
+            if (this._useImage && this._image) {
+                this._renderImage(ctx);
+                return;
+            }
+        }
+
+        // ===== 以下为原有程序化绘制（完全保留作为 fallback）=====
         ctx.save();
         const specialAlpha = this.config?.special === 'invisible' ? (this._invisibleAlpha || 1) : 1;
         const dyingFade = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer * 2) : 1;
@@ -947,6 +986,82 @@ export class Fish {
         ctx.lineTo(bones[bones.length - 2].x, -bones[bones.length - 2].width * 0.35);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
+    }
+
+    /**
+     * 图片渲染路径
+     * 支持：景深缩放/透明度、朝向旋转、死亡翻转、隐身、受击闪白、BOSS/发光外发光、轻微游动摆动
+     * 图片以 this.size 为基准宽度，高度按原始宽高比缩放
+     */
+    _renderImage(ctx) {
+        const img = this._image;
+        if (!img) { this._useImage = false; return; }
+
+        ctx.save();
+        const specialAlpha = this.config?.special === 'invisible' ? (this._invisibleAlpha || 1) : 1;
+        const dyingFade = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer * 2) : 1;
+        ctx.globalAlpha = this._depthAlpha * specialAlpha * dyingFade;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        ctx.rotate(this._roll);
+
+        // 死亡翻转（肚皮朝上，与程序化路径一致）
+        if (this.state === 'dying') {
+            const flipT = Math.min(1, this._deathTimer * 2.5);
+            ctx.rotate(Math.PI * flipT);
+        }
+
+        // 轻微游动摆动（sin 波，模拟鱼身摆动）
+        const sway = Math.sin(this._time * 4) * 0.05;
+        ctx.rotate(sway);
+
+        ctx.scale(this._depthScale, this._depthScale * (1 + this._pitch));
+
+        // BOSS / 发光鱼 外发光
+        if (this.isBoss || this.config?.glow) {
+            const glowColor = this.config?.glowColor || this.config?.lureColor || this.config?.accentColor || '#FFD700';
+            let pulse = Math.sin(this._time * 3) * 0.2 + 0.8;
+            if (this.config?.special === 'electric' && this._electricPulse > 0) {
+                pulse = this._electricPulse;
+            }
+            if (this.config?.special === 'split') {
+                pulse = this._splitPulse || 0.8;
+            }
+            ctx.globalCompositeOperation = 'lighter';
+            const glowRadius = this.isBoss ? this.size * 2.2 : this.size * 1.5;
+            const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
+            glowGradient.addColorStop(0, glowColor + Math.floor(pulse * 80).toString(16).padStart(2, '0'));
+            glowGradient.addColorStop(0.5, glowColor + '20');
+            glowGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = glowGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // 图片尺寸：以 this.size 为基准宽度，高度按原始比例
+        const imgW = this.size * 1.6;
+        const ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
+            ? img.naturalHeight / img.naturalWidth : 0.6;
+        const imgH = imgW * ratio;
+
+        // 注意：已通过 ctx.rotate(this.angle) 让局部 +x 沿鱼游向，
+        // 头朝右的精灵图在局部坐标系中自然朝向游向，无需再水平翻转。
+        ctx.drawImage(img, -imgW / 2, -imgH / 2, imgW, imgH);
+
+        // 受击闪白 / hurt 状态变白
+        if (this._hitFlash > 0 || this.animState === 'hurt') {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalAlpha = Math.max(this._hitFlash * 0.5, this.animState === 'hurt' ? 0.35 : 0);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, this.size * 0.6, this.size * 0.4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
         ctx.restore();
     }
 
