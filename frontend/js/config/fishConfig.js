@@ -199,7 +199,7 @@ export const FishConfig = {
             speed: 70,
             size: 100,
             boneSegments: 8,
-            spineSegments: 12,
+            spineSegments: 20,
             fresnelIntensity: 0.30,        // 金龙鱼强菲涅尔 F0=0.3
             scaleType: 'dragon',
             spawnWeight: 4,
@@ -222,7 +222,7 @@ export const FishConfig = {
             speed: 20,
             size: 350,
             boneSegments: 12,
-            spineSegments: 14,
+            spineSegments: 24,
             fresnelIntensity: 0.40,
             scaleType: 'dragon',
             spawnWeight: 1,
@@ -1418,15 +1418,15 @@ export const FishConfig = {
     // ===== 骨骼动画参数 =====
     boneAnimation: {
         bodyWaveFrequency: 3,              // 身体摆动频率
-        bodyWaveAmplitude: 0.15,           // 身体摆动幅度（弧度）
+        bodyWaveAmplitude: 0.08,           // 身体摆动幅度（弧度，约4.6度，避免累积角度过大导致切片扭曲）
         tailFrequency: 6,                   // 尾鳍扇动频率
-        tailAmplitude: 0.4,                 // 尾鳍扇动幅度
+        tailAmplitude: 0.35,                // 尾鳍扇动幅度（约20度）
         finFrequency: 4,                    // 胸鳍扇动频率
-        finAmplitude: 0.3,                  // 胸鳍扇动幅度
+        finAmplitude: 0.35,                 // 胸鳍扇动幅度（约20度）
         speedInfluence: 0.5,                // 速度对动画频率的影响
         // 脊椎分段摆动幅度权重：头/躯干/尾
-        headAmpScale: 0.3,                  // 头部摆动幅度系数
-        tailAmpScale: 1.5                   // 尾部摆动幅度系数
+        headAmpScale: 0.2,                  // 头部摆动幅度系数
+        tailAmpScale: 1.3                   // 尾部摆动幅度系数（避免尾部累积角度过大）
     },
 
     // ===== 动画状态机（7 种状态）=====

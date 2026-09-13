@@ -2174,6 +2174,7 @@ export class Game {
 
     /**
      * 启动游戏
+     * 包含 requestAnimationFrame 降级机制：如果 RAF 在 500ms 内未触发，自动切换到 setInterval
      */
     start() {
         this.state = 'playing';
@@ -2187,7 +2188,24 @@ export class Game {
         if (!this.tutorialSystem.isCompleted()) {
             setTimeout(() => this.tutorialSystem.start(), 1000);
         }
-        requestAnimationFrame((t) => this.gameLoop(t));
+
+        // 启动主循环（带 RAF 降级机制）
+        this._rafFired = false;
+        this._rafId = requestAnimationFrame((t) => {
+            this._rafFired = true;
+            this.gameLoop(t);
+        });
+
+        // RAF 降级：500ms 内未触发则切换到 setInterval（兼容某些内嵌浏览器环境）
+        this._rafFallbackTimer = setTimeout(() => {
+            if (!this._rafFired && !this._intervalId) {
+                console.warn('[Game] requestAnimationFrame 未响应，切换到 setInterval 驱动');
+                if (this._rafId) cancelAnimationFrame(this._rafId);
+                this._intervalId = setInterval(() => {
+                    this.gameLoop(performance.now());
+                }, 16);
+            }
+        }, 500);
     }
 
     /**

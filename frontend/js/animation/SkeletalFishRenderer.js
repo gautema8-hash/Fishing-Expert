@@ -41,10 +41,13 @@ export class SkeletalFishRenderer {
      */
     _getSlices(image, numSegments) {
         if (!image || !image.naturalWidth) return null;
-        const key = `${image.src || 'img'}|${numSegments}`;
+        // 动态重叠量：每片宽度的50%，确保骨骼大角度弯曲时切片间无间隙
+        // 1024px图/20片→重叠25px；2048px图/12片→重叠85px
+        const overlapPx = Math.max(12, Math.round(image.naturalWidth / numSegments * 0.5));
+        const key = `${image.src || 'img'}|${numSegments}|${overlapPx}`;
         let slices = this._sliceCache.get(key);
         if (!slices) {
-            slices = ImageSlicer.sliceVertical(image, numSegments, 4);
+            slices = ImageSlicer.sliceVertical(image, numSegments, overlapPx);
             if (slices.length > 0) {
                 this._sliceCache.set(key, slices);
             }
@@ -102,14 +105,22 @@ export class SkeletalFishRenderer {
 
         // 从尾部向头部绘制（后绘制的头部覆盖在上面）
         // slice[0]=左=尾 → spine[last], slice[last]=右=头 → spine[0]
+        // 切片中心定位在骨骼中点（而非起点），并增加20%宽度确保弯曲时无间隙
         for (let i = slices.length - 1; i >= 0; i--) {
             const slice = slices[i];
             const bone = spine[boneMapping[i]];
 
+            // 计算骨骼中点位置（骨骼起点 + 骨骼长度一半沿骨骼方向）
+            const halfLen = bone.length * 0.5;
+            const midX = bone.wx + Math.cos(bone.wAngle) * halfLen;
+            const midY = bone.wy + Math.sin(bone.wAngle) * halfLen;
+
             ctx.save();
-            ctx.translate(bone.wx, bone.wy);
+            ctx.translate(midX, midY);
             ctx.rotate(bone.wAngle);
-            ctx.drawImage(slice.canvas, -slice.srcW * displayScale * 0.5, -displayH * 0.5, slice.srcW * displayScale, displayH);
+            // 切片宽度增加20%，确保大角度弯曲时相邻切片仍有重叠
+            const sliceDrawW = slice.srcW * displayScale * 1.2;
+            ctx.drawImage(slice.canvas, -sliceDrawW * 0.5, -displayH * 0.5, sliceDrawW, displayH);
             ctx.restore();
         }
 
