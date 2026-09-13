@@ -9,7 +9,6 @@ export class TopBar {
         this.element = null;
         this._coinDisplay = null;
         this._diamondDisplay = null;
-        this._levelDisplay = null;
         this._create();
     }
 
@@ -55,17 +54,12 @@ export class TopBar {
                     <span class="diamond-icon">💎</span>
                     <span class="diamond-value">10</span>
                 </div>
-                <div class="level-display">
-                    <span class="level-icon">🏆</span>
-                    <span class="level-value">第1关</span>
-                </div>
             </div>
         `;
         this.container.appendChild(this.element);
 
         this._coinDisplay = this.element.querySelector('.coin-value');
         this._diamondDisplay = this.element.querySelector('.diamond-value');
-        this._levelDisplay = this.element.querySelector('.level-value');
         this._energyFill = this.element.querySelector('#energy-bar-fill');
         this._energyText = this.element.querySelector('#energy-bar-text');
 
@@ -117,12 +111,6 @@ export class TopBar {
     updateDiamonds(value) {
         if (this._diamondDisplay) {
             this._diamondDisplay.textContent = value;
-        }
-    }
-
-    updateLevel(level) {
-        if (this._levelDisplay) {
-            this._levelDisplay.textContent = `第${level}关`;
         }
     }
 

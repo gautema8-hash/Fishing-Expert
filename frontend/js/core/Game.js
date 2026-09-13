@@ -275,20 +275,17 @@ export class Game {
             this.audio.play('button');
         });
 
-        // 关卡升级
+        // 关卡升级（内部难度调节保留，不向玩家显示关卡UI）
         this.eventBus.on(Events.LEVEL_UP, (level) => {
-            this.topBar.updateLevel(level);
             this.fishManager.setLevelParams(this.levelSystem.params);
-            this.uiManager.showToast(`进入第 ${level} 关！`);
             this.audio.play('levelup');
             this.analytics.track(AnalyticsEvents.LEVEL_UP, { level });
             // 成就统计
             this.achievementSystem.setStat('highestLevel', level);
         });
 
-        // 关卡完成
+        // 关卡完成（内部逻辑保留用于难度调节，不显示通关提示）
         this.eventBus.on(Events.LEVEL_COMPLETE, (data) => {
-            this.uiManager.showToast(`第${data.level}关完成！获得${data.stars}星，奖励${Utils.formatCoin(data.reward.coins)}金币`);
             this.economy.addCoins(data.reward.coins, 'level_reward');
             if (data.reward.diamonds) {
                 this.economy.addDiamonds(data.reward.diamonds);
@@ -298,7 +295,7 @@ export class Game {
 
         // BOSS 出场
         this.eventBus.on(Events.BOSS_WARNING, () => {
-            this.uiManager.showToast('⚠️ 中国金龙即将降临！');
+            this.uiManager.showToast('⚠️ 巨型BOSS即将降临！');
             this.audio.play('boss');
             this.renderer.camera.shake(10, 0.5);
             // 触发全屏预警特效
@@ -307,7 +304,7 @@ export class Game {
         });
 
         this.eventBus.on(Events.BOSS_APPEAR, () => {
-            this.uiManager.showToast('🐉 中国金龙出现了！');
+            this.uiManager.showToast('🐉 BOSS出现了！');
             this._bossWarning.active = false;
         });
 
@@ -960,13 +957,20 @@ export class Game {
     }
 
     _bindSignInButton() {
-        const btn = document.getElementById('signin-btn');
+        const btn = document.getElementById('signin-claim-btn');
         if (btn && !btn.disabled) {
             btn.addEventListener('click', () => {
                 const result = this.signInSystem.signIn();
                 if (result) {
                     this.economy.addCoins(result.reward.coins || 0, 'signin');
                     if (result.reward.diamonds) this.economy.addDiamonds(result.reward.diamonds);
+                    // 发放签到道具奖励（如第7天锁定道具）
+                    if (result.reward.items) {
+                        for (const [itemType, count] of Object.entries(result.reward.items)) {
+                            this.itemSystem.addItem(itemType, count);
+                            this.sidebar.updateItemCount(itemType, this.itemSystem.getItemCount(itemType));
+                        }
+                    }
                     this.uiManager.showToast(`签到成功！第${result.day}天奖励已领取`);
                     this.audio.play('coin');
                     btn.disabled = true;
@@ -1183,6 +1187,7 @@ export class Game {
         this._isMouseDown = false;
         this._isTouchDown = false;
         this._insufficientCooldown = 0;
+        this._lastFireTime = 0;
 
         // 鼠标/触摸瞄准
         const onAim = (clientX, clientY) => {
@@ -1203,7 +1208,6 @@ export class Game {
         // 鼠标
         gameCanvas.addEventListener('mousemove', (e) => {
             onAim(e.clientX, e.clientY);
-            if (this._isMouseDown) this._fireBullet();
         });
         gameCanvas.addEventListener('mousedown', (e) => {
             if (e.button === 0) {
@@ -1225,7 +1229,6 @@ export class Game {
             e.preventDefault();
             const touch = e.touches[0];
             onAim(touch.clientX, touch.clientY);
-            if (this._isTouchDown) this._fireBullet();
         }, { passive: false });
 
         gameCanvas.addEventListener('touchend', () => { this._isTouchDown = false; });
@@ -1253,12 +1256,25 @@ export class Game {
      */
     _fireBullet() {
         if (this._paused || this.state !== 'playing') return;
+        // 200ms 最小发射间隔防抖（防止极快双击连发）
+        const now = performance.now();
+        if (this._lastFireTime && now - this._lastFireTime < 200) return;
+        this._lastFireTime = now;
         if (!this.cannon.canFire()) return;
 
         const cost = this.cannon.getBulletCost();
         if (!this.economy.spendCoins(cost)) {
             // 金币不足时设置冷却，防止自动发射/按住连发时重复弹窗
             this.cannon._fireTimer = 1.0;
+            if (this.cannon.autoFire) {
+                // 自动开火：立即关闭自动开火并同步UI按钮状态
+                // （充值弹窗与"金币不足，请充值"toast 由 COIN_INSUFFICIENT 事件统一处理）
+                this.cannon.autoFire = false;
+                if (this.bottomBar && typeof this.bottomBar.setAutoFire === 'function') {
+                    this.bottomBar.setAutoFire(false);
+                }
+            }
+            // 手动点击：保持现有行为（冷却已设置，由 COIN_INSUFFICIENT 事件提示）
             return;
         }
 
@@ -1578,7 +1594,7 @@ export class Game {
             this.renderer.camera.shake(GameConfig.screenShake.bossAppearIntensity, GameConfig.screenShake.bossAppearDuration);
             this.taskSystem.updateProgress('boss', 1);
             this.eventBus.emit(Events.BOSS_KILL, fish);
-            this.uiManager.showToast('🐉 中国金龙被击杀！获得大量金币！');
+            this.uiManager.showToast('🐉 BOSS被击杀！获得大量金币！');
         } else {
             this.particleSystem.inkExplosion(fish.x, fish.y, fish.size > 50 ? 1.5 : 1);
             if (fish.size > 50) {
@@ -1674,7 +1690,6 @@ export class Game {
         this.fishManager.render(gameCtx);
         this.bulletManager.render(gameCtx);
         this.coinManager.render(gameCtx);
-        this.cannon.render(gameCtx);
         this.petSystem.render(gameCtx);
         this.aiBotManager.render(gameCtx);
 
@@ -1701,6 +1716,13 @@ export class Game {
 
         // 近景层（最近，视差0.9，在最前面）
         this.scene.renderNearForeground(gameCtx, this.renderer.camera);
+
+        // 炮台置于最顶层（ui层 z=6），确保炮台在鱼群、炮弹、粒子特效、近景之上
+        const uiCtx = this.renderer.getCtx('ui');
+        if (uiCtx) {
+            uiCtx.clearRect(0, 0, this.renderer.width, this.renderer.height);
+            this.cannon.render(uiCtx);
+        }
 
         this.renderer.endFrame();
     }
@@ -1865,6 +1887,8 @@ export class Game {
         this._lastTime = performance.now();
         // 初始推送金币/钻石显示（大单位格式化）
         this.topBar.updateCoins(Utils.formatCoin(Math.floor(this.economy.coins)));
+        // 同步初始炮台倍率到底部栏
+        this.bottomBar.updateCannonLevel(this.cannon.level);
         this._updateMailBadge();
         // 新玩家自动开始新手引导
         if (!this.tutorialSystem.isCompleted()) {

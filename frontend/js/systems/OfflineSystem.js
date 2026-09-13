@@ -19,7 +19,7 @@ export class OfflineSystem {
         // 回归礼包配置
         this.returningThresholdDays = 3; // 3天未登录触发回归
         this.returningGift = {
-            coins: 50000,
+            coins: 5000000000,
             diamonds: 20,
             items: { lock: 5, rage: 3 },
             highDropRate: true // 回归后首局高爆率
@@ -46,13 +46,10 @@ export class OfflineSystem {
         const daysAway = Math.floor(offlineMs / (1000 * 60 * 60 * 24));
         const isReturning = daysAway >= this.returningThresholdDays;
 
-        // 计算离线收益（超过1分钟才显示）
+        // 计算离线收益（超过1分钟才显示），收益固定为1亿
         let offlineEarnings = 0;
         if (offlineMinutes >= 1) {
-            const effectiveMinutes = Math.min(offlineMinutes, this.maxOfflineHours * 60);
-            const playerLevel = this.saveData.progress.currentLevel || 1;
-            const levelBonus = 1 + (playerLevel - 1) * this.offlineLevelMultiplier;
-            offlineEarnings = Math.floor(effectiveMinutes * this.offlineCoinsPerMinute * levelBonus);
+            offlineEarnings = 100000000; // 固定1亿金币
         }
 
         return {

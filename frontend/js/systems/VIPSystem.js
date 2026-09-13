@@ -111,13 +111,13 @@ export class SignInSystem {
 
     // 7 天签到奖励
     static REWARDS = [
-        { coins: 1000, diamonds: 0, items: {} },
-        { coins: 2000, diamonds: 0, items: {} },
-        { coins: 3000, diamonds: 1, items: {} },
-        { coins: 4000, diamonds: 0, items: {} },
-        { coins: 5000, diamonds: 2, items: {} },
-        { coins: 6000, diamonds: 0, items: {} },
-        { coins: 10000, diamonds: 5, items: { lock: 1 } }
+        { coins: 100000000, diamonds: 0, items: {} },
+        { coins: 200000000, diamonds: 0, items: {} },
+        { coins: 300000000, diamonds: 1, items: {} },
+        { coins: 400000000, diamonds: 0, items: {} },
+        { coins: 500000000, diamonds: 2, items: {} },
+        { coins: 600000000, diamonds: 0, items: {} },
+        { coins: 1000000000, diamonds: 5, items: { lock: 1 } }
     ];
 
     /**

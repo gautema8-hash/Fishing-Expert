@@ -36,8 +36,8 @@ export const GameConfig = {
 
     // ===== 炮台 =====
     cannon: {
-        minLevel: 1,
-        maxLevel: 10,
+        minLevel: 100,
+        maxLevel: 999999,
         baseFireRate: 3,                // 基础射速（发/秒）
         autoFireInterval: 0.3,          // 自动发射间隔（秒）
         critBaseRate: 0.05,             // 基础暴击率 5%

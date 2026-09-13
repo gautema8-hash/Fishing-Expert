@@ -132,10 +132,11 @@ export class BossDragonKing extends Fish {
         this.x += Math.cos(this.angle) * this.speed * dt;
         this.y += Math.sin(this.angle) * this.speed * dt + Math.sin(this._pathTime * 0.8) * 20 * dt;
 
-        // 边界
-        if (this.x < 100) { this.x = 100; this.targetAngle = 0; }
-        if (this.x > gameWidth - 100) { this.x = gameWidth - 100; this.targetAngle = Math.PI; }
-        this.y = Utils.clamp(this.y, 100, gameHeight - 200);
+        // 边界（允许 BOSS 部分身体在屏幕外，营造巨型压迫感）
+        const halfBoss = this.size * 1.5; // BOSS半宽，允许大部分身体出屏
+        if (this.x < -halfBoss) { this.x = -halfBoss; this.targetAngle = 0; }
+        if (this.x > gameWidth + halfBoss) { this.x = gameWidth + halfBoss; this.targetAngle = Math.PI; }
+        this.y = Utils.clamp(this.y, -this.size * 0.5, gameHeight - this.size * 0.5);
     }
 
     render(ctx) {
@@ -288,13 +289,13 @@ export class BossDragonKing extends Fish {
         const breath = 1 + Math.sin(this._time * 1.5) * 0.03;
         ctx.scale(breath, breath);
 
-        // ===== 外层金色光晕（BOSS威严霸气）=====
+        // ===== 外层金色光晕（减弱透明度，避免龙身边缘模糊）=====
         const glowPulse = Math.sin(this._time * 2.5) * 0.15 + 0.85;
         ctx.globalCompositeOperation = 'lighter';
         const glowRadius = this.size * 2.5;
         const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
-        glowGradient.addColorStop(0, `rgba(255, 215, 0, ${0.35 * glowPulse})`);
-        glowGradient.addColorStop(0.4, `rgba(255, 180, 0, ${0.15 * glowPulse})`);
+        glowGradient.addColorStop(0, `rgba(255, 215, 0, ${0.10 * glowPulse})`);
+        glowGradient.addColorStop(0.4, `rgba(255, 180, 0, ${0.05 * glowPulse})`);
         glowGradient.addColorStop(1, 'rgba(255, 150, 0, 0)');
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
@@ -317,7 +318,7 @@ export class BossDragonKing extends Fish {
         }
         ctx.globalCompositeOperation = 'source-over';
 
-        // ===== 绘制金龙图片 =====
+        // ===== 绘制金龙图片（仅绘制一次，干净清晰）=====
         // 完整龙身需要更大显示尺寸，使用 config.imageScale（缺省2.2）替代硬编码1.8
         const bossImageScale = (this.config && this.config.imageScale) ? this.config.imageScale : 2.2;
         const imgW = this.size * bossImageScale;
@@ -326,16 +327,7 @@ export class BossDragonKing extends Fish {
         const imgH = imgW * ratio;
         ctx.drawImage(img, -imgW / 2, -imgH / 2, imgW, imgH);
 
-        // ===== 内层边缘金光（描边发光）=====
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.25 * glowPulse;
-        ctx.strokeStyle = '#FFD700';
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.ellipse(0, 0, imgW * 0.48, imgH * 0.45, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.globalAlpha = 1;
-        ctx.globalCompositeOperation = 'source-over';
+        // ===== 内层边缘金光（已移除：叠加发光会导致图片模糊）=====
     }
 
     _renderDragonBody(ctx, bones, cfg) {
@@ -551,10 +543,14 @@ export class BossDragonKing extends Fish {
     }
 
     _renderHealthBar(ctx) {
-        const barWidth = 300;
-        const barHeight = 16;
+        const barWidth = 400;
+        const barHeight = 20;
         const barX = (ctx.canvas.width - barWidth) / 2;
-        const barY = 80;
+        const barY = 60;
+
+        // 血条发光效果
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 10;
 
         // 背景
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
@@ -574,13 +570,7 @@ export class BossDragonKing extends Fish {
         ctx.lineWidth = 2;
         ctx.strokeRect(barX, barY, barWidth, barHeight);
 
-        // BOSS 名称
-        ctx.fillStyle = '#FFD700';
-        ctx.font = 'bold 18px "Microsoft YaHei", sans-serif';
-        ctx.textAlign = 'center';
-        ctx.shadowColor = '#FFD700';
-        ctx.shadowBlur = 10;
-        ctx.fillText('中国金龙', ctx.canvas.width / 2, barY - 10);
+        // 关闭发光
         ctx.shadowBlur = 0;
     }
 
@@ -589,7 +579,7 @@ export class BossDragonKing extends Fish {
     }
 
     getCollisionRadius() {
-        // BOSS完整龙身较大，碰撞半径放大以覆盖蜿蜒的龙身各段
-        return this.size * 0.8;
+        // 巨型 BOSS 碰撞盒略小于视觉尺寸，避免"空打"感，但仍覆盖主要身体
+        return this.size * 0.6;
     }
 }

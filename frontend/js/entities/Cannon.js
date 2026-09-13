@@ -11,7 +11,7 @@ export class Cannon {
         this.y = y;
         this.angle = -Math.PI / 2; // 默认朝上
         this.targetAngle = -Math.PI / 2;
-        this.level = 1;
+        this.level = 100;
         this.skin = 'dragon';
         this.autoFire = false;
         this._fireTimer = 0;
@@ -21,6 +21,12 @@ export class Cannon {
         this._rageActive = false;
         this._rageTimer = 0;
         this.fireRateMultiplier = 1.0;
+
+        // 豪华炮台图片渲染
+        this._image = new Image();
+        this._imageLoaded = false;
+        this._image.onload = () => { this._imageLoaded = true; };
+        this._image.src = 'assets/cannon/cannon-luxury.png';
     }
 
     /**
@@ -74,8 +80,8 @@ export class Cannon {
         this._fireTimer = 1 / fireRate;
         this._muzzleFlash = 1;
 
-        const muzzleX = this.x + Math.cos(this.angle) * 50;
-        const muzzleY = this.y + Math.sin(this.angle) * 50;
+        const muzzleX = this.x + Math.cos(this.angle) * 75;
+        const muzzleY = this.y + Math.sin(this.angle) * 75;
 
         return {
             x: muzzleX,
@@ -94,7 +100,7 @@ export class Cannon {
      */
     upgrade() {
         if (this.level < GameConfig.cannon.maxLevel) {
-            this.level++;
+            this.level += 100;
             return true;
         }
         return false;
@@ -105,7 +111,7 @@ export class Cannon {
      */
     downgrade() {
         if (this.level > GameConfig.cannon.minLevel) {
-            this.level--;
+            this.level -= 100;
             return true;
         }
         return false;
@@ -157,32 +163,68 @@ export class Cannon {
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        // 高倍炮台流光环绕
-        if (this.level >= 5 || this.skin !== 'dragon') {
-            this._renderFlowEffect(ctx, skinConfig.color);
+        // 高倍炮台流光环绕（已移除：去边框）
+        // if (this.level >= 5 || this.skin !== 'dragon') {
+        //     this._renderFlowEffect(ctx, skinConfig.color);
+        // }
+
+        if (this._imageLoaded) {
+            // ===== 豪华炮台图片渲染 =====
+            const size = 150;
+            ctx.save();
+            // 图片设计为炮管朝上（角度=-PI/2），旋转 this.angle+PI/2 使炮管指向瞄准方向
+            ctx.rotate(this.angle + Math.PI / 2);
+            ctx.drawImage(this._image, -size / 2, -size / 2, size, size);
+
+            // 炮口闪光（旋转空间中炮管朝上，炮口位于 (0,-75)）
+            if (this._muzzleFlash > 0) {
+                ctx.globalCompositeOperation = 'lighter';
+                const flash = ctx.createRadialGradient(0, -75, 0, 0, -75, 30 * this._muzzleFlash);
+                flash.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                flash.addColorStop(0.3, this._rageActive ? 'rgba(255, 107, 53, 0.7)' : 'rgba(54, 224, 232, 0.7)');
+                flash.addColorStop(1, 'rgba(54, 224, 232, 0)');
+                ctx.fillStyle = flash;
+                ctx.beginPath();
+                ctx.arc(0, -75, 30 * this._muzzleFlash, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            ctx.restore();
+        } else {
+            // ===== 程序化绘制 fallback（图片未加载时）=====
+            this._renderBase(ctx, skinConfig);
+
+            ctx.save();
+            ctx.rotate(this.angle);
+            this._renderBarrel(ctx, skinConfig);
+
+            if (this._muzzleFlash > 0) {
+                ctx.globalCompositeOperation = 'lighter';
+                const flash = ctx.createRadialGradient(55, 0, 0, 55, 0, 30 * this._muzzleFlash);
+                flash.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+                flash.addColorStop(0.3, this._rageActive ? 'rgba(255, 107, 53, 0.7)' : 'rgba(54, 224, 232, 0.7)');
+                flash.addColorStop(1, 'rgba(54, 224, 232, 0)');
+                ctx.fillStyle = flash;
+                ctx.beginPath();
+                ctx.arc(55, 0, 30 * this._muzzleFlash, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            ctx.restore();
         }
 
-        // 底座
-        this._renderBase(ctx, skinConfig);
-
-        // 炮管
+        // 倍率显示（金色描边文字，底座中心）
         ctx.save();
-        ctx.rotate(this.angle);
-        this._renderBarrel(ctx, skinConfig);
-
-        // 炮口闪光
-        if (this._muzzleFlash > 0) {
-            ctx.globalCompositeOperation = 'lighter';
-            const flash = ctx.createRadialGradient(55, 0, 0, 55, 0, 30 * this._muzzleFlash);
-            flash.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
-            flash.addColorStop(0.3, this._rageActive ? 'rgba(255, 107, 53, 0.7)' : 'rgba(54, 224, 232, 0.7)');
-            flash.addColorStop(1, 'rgba(54, 224, 232, 0)');
-            ctx.fillStyle = flash;
-            ctx.beginPath();
-            ctx.arc(55, 0, 30 * this._muzzleFlash, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.globalCompositeOperation = 'source-over';
-        }
+        ctx.font = 'bold 15px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(0, 20, 40, 0.9)';
+        ctx.strokeText(`×${this.level}`, 0, 0);
+        ctx.fillStyle = '#FFD700';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 5;
+        ctx.fillText(`×${this.level}`, 0, 0);
         ctx.restore();
 
         // 皮肤切换特效

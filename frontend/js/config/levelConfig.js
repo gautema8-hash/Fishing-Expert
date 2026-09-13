@@ -12,7 +12,7 @@ export const LevelConfig = {
         bossScoreGrowth: 0.15,             // 每关 BOSS 分值增长率
         highValueFishGrowth: 0.02,         // 每关高价值鱼概率增长
         fishDensityGrowth: 0.1,            // 每关鱼群密度增长
-        maxFishGrowth: 1,                   // 每关最大鱼数增长
+        maxFishGrowth: 3,                   // 每关最大鱼数增长
         bossSpawnInterval: 60,              // BOSS 出现间隔（秒）
         bossSpawnMinLevel: 3                // BOSS 最低出现关卡
     },
@@ -44,7 +44,7 @@ export const LevelConfig = {
             bossScoreMultiplier: 1 + (level - 1) * b.bossScoreGrowth,
             highValueFishBonus: (level - 1) * b.highValueFishGrowth,
             fishDensityMultiplier: 1 + (level - 1) * b.fishDensityGrowth,
-            maxFish: 30 + (level - 1) * b.maxFishGrowth,
+            maxFish: 90 + (level - 1) * b.maxFishGrowth,
             bossSpawnInterval: b.bossSpawnInterval,
             bossEnabled: level >= b.bossSpawnMinLevel
         };

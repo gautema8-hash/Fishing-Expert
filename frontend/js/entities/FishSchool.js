@@ -22,7 +22,7 @@ export class FishManager {
         this.schools = [];
         this._spawnTimer = 0;
         this._bossTimer = 0;
-        this._maxFish = 35;
+        this._maxFish = 90;
         this._currentLevel = 1;
         this._bossEnabled = false;
         this._bossSpawnInterval = 60;
@@ -33,9 +33,9 @@ export class FishManager {
 
         // ===== 性能优化：Fish 对象池 =====
         this._fishPool = [];               // 空闲 Fish 对象栈
-        this._maxPoolSize = 80;            // 池最大容量（含在途复用）
-        // 预热：预分配 40 个 Fish 对象
-        for (let i = 0; i < 40; i++) {
+        this._maxPoolSize = 200;           // 池最大容量（含在途复用）
+        // 预热：预分配 120 个 Fish 对象
+        for (let i = 0; i < 120; i++) {
             this._fishPool.push(new Fish());
         }
 
@@ -50,7 +50,7 @@ export class FishManager {
 
         // ===== 性能优化：动态鱼数倍率 =====
         this._fishMultiplier = 1.0;       // 当前鱼数倍率（FPS 自适应调整）
-        this._baseMaxFish = 35;           // 关卡设定的基础上限
+        this._baseMaxFish = 90;           // 关卡设定的基础上限
     }
 
     /**
@@ -141,8 +141,8 @@ export class FishManager {
     update(dt, gameWidth, gameHeight, bullets = []) {
         // 生成普通鱼（随机间隔，一次可生成 1~maxFishPerSpawn 条）
         this._spawnTimer += dt;
-        // 最低鱼数保障：场上鱼数低于20条时立即补生成，不等待 spawnTimer
-        if (this.fishes.length < 20 && this.fishes.length < this._maxFish) {
+        // 最低鱼数保障：场上鱼数低于60条时立即补生成，不等待 spawnTimer
+        if (this.fishes.length < 60 && this.fishes.length < this._maxFish) {
             this._spawnTimer = 0;
             const sys = FishConfig.spawnSystem;
             this._nextSpawnInterval = Utils.random(sys.minInterval, sys.maxInterval);
@@ -440,10 +440,10 @@ export class FishManager {
         const boss = new BossDragonKing();
         const hpMult = 1 + (this._currentLevel - 1) * 0.2;
         const scoreMult = 1 + (this._currentLevel - 1) * 0.15;
-        // BOSS 从 top 或 right 随机入场（预警机制保持不变）
+        // BOSS 从 top 或 right 随机入场（预警机制保持不变），从屏幕外更远位置游入以增加压迫感
         const fromTop = Math.random() < 0.5;
-        const startX = fromTop ? Utils.random(gameWidth * 0.3, gameWidth * 0.7) : gameWidth + 200;
-        const startY = fromTop ? -200 : gameHeight * 0.4;
+        const startX = fromTop ? Utils.random(gameWidth * 0.3, gameWidth * 0.7) : gameWidth + 400;
+        const startY = fromTop ? -400 : gameHeight * 0.4;
         boss.init(startX, startY, -1, hpMult, scoreMult, this.eventBus);
         this.boss = boss;
         this.eventBus.emit('boss:warning', boss);

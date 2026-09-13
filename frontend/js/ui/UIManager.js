@@ -262,7 +262,6 @@ export class UIManager {
             <div class="rank-tabs">
                 <button class="rank-tab active">金币榜</button>
                 <button class="rank-tab">击杀榜</button>
-                <button class="rank-tab">关卡榜</button>
             </div>
             <div class="rank-list">
                 ${mockRanks.map(r => `
@@ -1369,7 +1368,7 @@ export class UIManager {
     }
 
     _fillSignIn(content, data) {
-        const rewards = [1000, 2000, 3000, 4000, 5000, 6000, 10000];
+        const rewards = [100000000, 200000000, 300000000, 400000000, 500000000, 600000000, 1000000000];
         const signInDays = data.signInDays || 0;
         const canSignIn = data.canSignIn;
         content.innerHTML = `
@@ -1382,10 +1381,10 @@ export class UIManager {
                     </div>
                 `).join('')}
             </div>
-            <button class="signin-btn" id="signin-btn" ${canSignIn ? '' : 'disabled'}>
+            <button class="signin-btn" id="signin-claim-btn" ${canSignIn ? '' : 'disabled'}>
                 ${canSignIn ? '立即签到' : '今日已签到'}
             </button>
-            <p class="signin-hint">连续签到奖励递增，第7天可获得1万金币+5钻石+锁定道具！</p>
+            <p class="signin-hint">连续签到奖励递增，第7天可获得10亿金币+5钻石+锁定道具！</p>
         `;
     }
 
@@ -1398,7 +1397,7 @@ export class UIManager {
                 ${[6, 30, 68, 128, 328, 648].map(price => `
                     <div class="recharge-item">
                         <div class="recharge-amount">¥${price}</div>
-                        <div class="recharge-coins">${Utils.formatCoin(price * 1000)}金币</div>
+                        <div class="recharge-coins">${Utils.formatCoin(price * 100000000)}金币</div>
                         <button class="recharge-btn">充值</button>
                     </div>
                 `).join('')}
