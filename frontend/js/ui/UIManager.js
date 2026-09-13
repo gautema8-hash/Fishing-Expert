@@ -3,6 +3,7 @@
  * 弹窗栈管理、Toast 提示、全局 UI 事件
  */
 import { Events } from '../core/EventBus.js';
+import { Utils } from '../core/Utils.js';
 import { ShopConfig } from '../config/shopConfig.js';
 import { UpgradeConfig } from '../systems/UpgradeSystem.js';
 
@@ -139,7 +140,7 @@ export class UIManager {
                 items = ShopConfig.coinPackages.map(p => ({
                     name: p.name,
                     price: `¥${p.price}`,
-                    desc: `${p.bonusCoins > 0 ? p.coins + '+' + p.bonusCoins : p.coins}金币${p.diamonds ? ' +' + p.diamonds + '钻石' : ''}`,
+                    desc: `${p.bonusCoins > 0 ? Utils.formatCoin(p.coins) + '+' + Utils.formatCoin(p.bonusCoins) : Utils.formatCoin(p.coins)}金币${p.diamonds ? ' +' + p.diamonds + '钻石' : ''}`,
                     tag: p.tag,
                     popular: p.popular
                 }));
@@ -147,7 +148,7 @@ export class UIManager {
                 items = ShopConfig.subscriptions.map(s => ({
                     name: s.name,
                     price: `¥${s.price}`,
-                    desc: `${s.durationDays}天内金币收益翻倍，每日领取${s.dailyCoins}金币`,
+                    desc: `${s.durationDays}天内金币收益翻倍，每日领取${Utils.formatCoin(s.dailyCoins)}金币`,
                     tag: '',
                     popular: false
                 }));
@@ -164,7 +165,7 @@ export class UIManager {
                 const festival = (ShopConfig.festivalPacks || []).map(p => ({
                     name: p.name,
                     price: `¥${p.price}`,
-                    desc: `${p.coins}+${p.bonusCoins}金币 +${p.diamonds}钻`,
+                    desc: `${Utils.formatCoin(p.coins)}+${Utils.formatCoin(p.bonusCoins)}金币 +${p.diamonds}钻`,
                     tag: p.tag,
                     popular: p.popular,
                     originalPrice: p.originalPrice
@@ -172,7 +173,7 @@ export class UIManager {
                 const limited = (ShopConfig.limitedOffers || []).map(p => ({
                     name: p.name,
                     price: `¥${p.price}`,
-                    desc: `${p.coins}金币 +${p.diamonds || 0}钻`,
+                    desc: `${Utils.formatCoin(p.coins)}金币 +${p.diamonds || 0}钻`,
                     tag: p.discount,
                     popular: false,
                     originalPrice: p.originalPrice
@@ -236,7 +237,7 @@ export class UIManager {
                     <span class="task-progress-text">${task.progress}/${task.target}</span>
                 </div>
                 <div class="task-reward">
-                    <span class="reward-coins">🪙 ${task.reward.coins || 0}</span>
+                    <span class="reward-coins">🪙 ${Utils.formatCoin(task.reward.coins || 0)}</span>
                     ${task.reward.diamonds ? `<span class="reward-diamonds">💎 ${task.reward.diamonds}</span>` : ''}
                     <button class="task-claim-btn" data-task-id="${task.id}" ${task.claimed || task.progress < task.target ? 'disabled' : ''}>
                         ${task.claimed ? '已领取' : '领取'}
@@ -460,7 +461,7 @@ export class UIManager {
                             </div>
                         </div>
                         <button class="upgrade-btn ${u.isMax ? 'maxed' : ''}" data-type="${u.type}" ${u.isMax ? 'disabled' : ''}>
-                            ${u.isMax ? '已满级' : `🪙 ${u.cost}`}
+                            ${u.isMax ? '已满级' : `🪙 ${Utils.formatCoin(u.cost)}`}
                         </button>
                     </div>
                 `).join('')}
@@ -491,7 +492,7 @@ export class UIManager {
                         <div class="pet-desc">${p.description}</div>
                         ${p.owned ? `
                             <div class="pet-stats">
-                                <span>金币+${p.coinBonus}</span>
+                                <span>金币+${Utils.formatCoin(p.coinBonus)}</span>
                                 <span>暴击+${p.critBonus}</span>
                             </div>
                             <div class="pet-level">Lv.${p.level}</div>
@@ -500,10 +501,10 @@ export class UIManager {
                                     ? '<button class="pet-btn active-btn" disabled>出战中</button>' 
                                     : `<button class="pet-btn equip-btn" data-type="${p.type}">出战</button>`
                                 }
-                                <button class="pet-btn upgrade-pet-btn" data-type="${p.type}">升级 🪙${p.upgradeCost}</button>
+                                <button class="pet-btn upgrade-pet-btn" data-type="${p.type}">升级 🪙${Utils.formatCoin(p.upgradeCost)}</button>
                             </div>
                         ` : `
-                            <button class="pet-btn unlock-btn" data-type="${p.type}">解锁 🪙${p.unlockCost}</button>
+                            <button class="pet-btn unlock-btn" data-type="${p.type}">解锁 🪙${Utils.formatCoin(p.unlockCost)}</button>
                         `}
                     </div>
                 `).join('')}
@@ -568,7 +569,7 @@ export class UIManager {
                 </div>
                 <div class="stats-card">
                     <div class="stats-icon">🪙</div>
-                    <div class="stats-value">${(s.totalCoinsEarned || 0).toLocaleString()}</div>
+                    <div class="stats-value">${Utils.formatCoin(s.totalCoinsEarned || 0)}</div>
                     <div class="stats-label">累计金币</div>
                 </div>
                 <div class="stats-card">
@@ -612,7 +613,7 @@ export class UIManager {
                             <div class="achievement-progress-text">${ach.progress}/${ach.condition.value}</div>
                         </div>
                         <div class="achievement-reward">
-                            ${ach.reward.coins ? `<span>🪙${ach.reward.coins}</span>` : ''}
+                            ${ach.reward.coins ? `<span>🪙${Utils.formatCoin(ach.reward.coins)}</span>` : ''}
                             ${ach.reward.diamonds ? `<span>💎${ach.reward.diamonds}</span>` : ''}
                         </div>
                         ${ach.canClaim ? `<button class="achievement-claim-btn" data-id="${ach.id}">领取</button>` : ''}
@@ -654,7 +655,7 @@ export class UIManager {
                             <div class="mail-body">${mail.content.replace(/\n/g, '<br>')}</div>
                             ${mail.hasAttachment ? `
                                 <div class="mail-attachments">
-                                    ${mail.attachments.coins ? `<span class="mail-attachment">🪙 ${mail.attachments.coins}</span>` : ''}
+                                    ${mail.attachments.coins ? `<span class="mail-attachment">🪙 ${Utils.formatCoin(mail.attachments.coins)}</span>` : ''}
                                     ${mail.attachments.diamonds ? `<span class="mail-attachment">💎 ${mail.attachments.diamonds}</span>` : ''}
                                     ${mail.attachments.items ? Object.entries(mail.attachments.items).map(([k,v]) => `<span class="mail-attachment">${k==='lock'?'🔒':'🔥'} ×${v}</span>`).join('') : ''}
                                 </div>
@@ -800,7 +801,7 @@ export class UIManager {
                             <div class="friend-info">
                                 <div class="friend-name">${f.name} <span class="friend-vip">VIP${f.vip}</span></div>
                                 <div class="friend-level">Lv.${f.level} · ${f.onlineStatus}</div>
-                                <div class="friend-coins">🪙 ${f.coins.toLocaleString()}</div>
+                                <div class="friend-coins">🪙 ${Utils.formatCoin(f.coins)}</div>
                             </div>
                             <div class="friend-actions-col">
                                 ${f.canGift ? `<button class="friend-gift-btn" data-id="${f.id}">赠送</button>` : '<span class="friend-gifted">已赠送</span>'}
@@ -1099,7 +1100,7 @@ export class UIManager {
                         </div>
                         <div class="guild-boss-hp-text">${(boss.currentHp || 0).toLocaleString()} / ${(boss.maxHp || 0).toLocaleString()}</div>
                         <button class="guild-boss-attack" id="guild-boss-attack">攻击BOSS (+100伤害)</button>
-                        <div class="guild-boss-reward">击杀奖励：🪙${(boss.reward?.coins || 0).toLocaleString()} 💎${boss.reward?.diamonds || 0}</div>
+                        <div class="guild-boss-reward">击杀奖励：🪙${Utils.formatCoin(boss.reward?.coins || 0)} 💎${boss.reward?.diamonds || 0}</div>
                         <div class="guild-boss-refresh">刷新时间：${boss.refreshTime || '每日20:00'}</div>
                         <div class="guild-boss-rank">
                             <div class="guild-boss-rank-title">伤害排行</div>
@@ -1249,7 +1250,7 @@ export class UIManager {
     _formatReward(reward) {
         if (!reward) return '无';
         const parts = [];
-        if (reward.coins) parts.push(`🪙${reward.coins}`);
+        if (reward.coins) parts.push(`🪙${Utils.formatCoin(reward.coins)}`);
         if (reward.diamonds) parts.push(`💎${reward.diamonds}`);
         if (reward.items) parts.push(Object.entries(reward.items).map(([k,v]) => `${k==='lock'?'🔒':'🔥'}×${v}`).join(' '));
         if (reward.skin) parts.push(`🎨皮肤`);
@@ -1270,7 +1271,7 @@ export class UIManager {
                 ${capped ? '<p class="offline-capped">（已达8小时上限）</p>' : ''}
                 <div class="offline-reward">
                     <span class="offline-coin-icon">🪙</span>
-                    <span class="offline-coin-amount">+${earnings.toLocaleString()}</span>
+                    <span class="offline-coin-amount">+${Utils.formatCoin(earnings)}</span>
                 </div>
                 <button class="offline-claim-btn" id="offline-claim-btn">领取收益</button>
                 <p class="offline-hint">升级炮台和关卡可提升离线收益</p>
@@ -1298,7 +1299,7 @@ export class UIManager {
                 <div class="returning-rewards">
                     <div class="returning-reward-item">
                         <span class="reward-icon">🪙</span>
-                        <span class="reward-amount">${gift.coins.toLocaleString()}</span>
+                        <span class="reward-amount">${Utils.formatCoin(gift.coins)}</span>
                     </div>
                     <div class="returning-reward-item">
                         <span class="reward-icon">💎</span>
@@ -1315,7 +1316,7 @@ export class UIManager {
                 </div>
                 ${offlineEarnings > 0 ? `
                     <div class="returning-offline">
-                        <span>离线收益：+${offlineEarnings.toLocaleString()} 金币</span>
+                        <span>离线收益：+${Utils.formatCoin(offlineEarnings)} 金币</span>
                     </div>
                 ` : ''}
                 <button class="returning-claim-btn" id="returning-claim-btn">领取全部</button>
@@ -1376,7 +1377,7 @@ export class UIManager {
                 ${rewards.map((r, i) => `
                     <div class="signin-day ${i < signInDays ? 'signed' : ''} ${i === signInDays && canSignIn ? 'current' : ''}">
                         <div class="day-number">第${i + 1}天</div>
-                        <div class="day-reward">🪙${r >= 10000 ? r / 10000 + '万' : r}</div>
+                        <div class="day-reward">🪙${Utils.formatCoin(r)}</div>
                         ${i < signInDays ? '<div class="day-check">✓</div>' : ''}
                     </div>
                 `).join('')}

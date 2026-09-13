@@ -271,23 +271,50 @@ export class Bullet {
 
 /**
  * 炮弹管理器
+ * 性能优化：Bullet 对象池复用，避免频繁 new/GC
  */
 export class BulletManager {
     constructor(eventBus) {
         this.eventBus = eventBus;
         this.bullets = [];
         this._maxBullets = GameConfig.bullet.maxBullets;
+        // Bullet 对象池
+        this._bulletPool = [];
+        this._maxPoolSize = 80;
     }
 
     fire(config) {
         if (this.bullets.length >= this._maxBullets) {
-            // 移除最老的炮弹
-            this.bullets.shift();
+            // 移除最老的炮弹（释放回池）
+            const old = this.bullets.shift();
+            this._releaseBullet(old);
         }
-        const bullet = new Bullet();
+        const bullet = this._acquireBullet();
         bullet.init(config);
         this.bullets.push(bullet);
         return bullet;
+    }
+
+    /**
+     * 从对象池获取 Bullet
+     */
+    _acquireBullet() {
+        let b = this._bulletPool.pop();
+        if (!b) {
+            b = new Bullet();
+        }
+        return b;
+    }
+
+    /**
+     * 释放 Bullet 回对象池
+     */
+    _releaseBullet(b) {
+        if (!b) return;
+        b.reset();
+        if (this._bulletPool.length < this._maxPoolSize) {
+            this._bulletPool.push(b);
+        }
     }
 
     update(dt, gameWidth, gameHeight) {
@@ -300,6 +327,7 @@ export class BulletManager {
             }
             if (!bullet._active) {
                 this.bullets.splice(i, 1);
+                this._releaseBullet(bullet);
             }
         }
     }
@@ -311,6 +339,10 @@ export class BulletManager {
     }
 
     clear() {
+        // 释放所有炮弹回对象池
+        for (const b of this.bullets) {
+            this._releaseBullet(b);
+        }
         this.bullets = [];
     }
 

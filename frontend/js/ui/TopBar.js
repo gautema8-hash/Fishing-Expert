@@ -40,7 +40,7 @@ export class TopBar {
             <div class="top-bar-center">
                 <div class="coin-display" id="coin-display">
                     <span class="coin-icon">🪙</span>
-                    <span class="coin-value">10,000</span>
+                    <span class="coin-value">1.00亿</span>
                     <button class="coin-add-btn" id="coin-add-btn">+</button>
                 </div>
                 <div class="energy-bar-container">

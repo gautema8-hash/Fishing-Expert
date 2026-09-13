@@ -16,6 +16,9 @@ export class Particle {
         this._active = false;
     }
 
+    /** 共享精灵图集（由 ParticleSystem constructor 初始化） */
+    static sprites = null;
+
     reset() {
         this.x = 0;
         this.y = 0;
@@ -100,39 +103,32 @@ export class Particle {
         ctx.translate(this.x, this.y);
         ctx.rotate(this.rotation);
 
+        // 性能优化：优先使用预渲染精灵（避免每帧 createRadialGradient）
+        const sprite = Particle.sprites && Particle.sprites[this.type];
+        if (sprite) {
+            if (this.type === 'trail') {
+                // trail 精灵是 4:1 长条，按原始宽高比绘制
+                const w = this.size * 4;
+                const h = this.size * 1;
+                ctx.drawImage(sprite, -w / 2, -h / 2, w, h);
+            } else {
+                const s = this.size * 2;
+                ctx.drawImage(sprite, -s / 2, -s / 2, s, s);
+            }
+            ctx.restore();
+            return;
+        }
+
+        // 以下为矢量绘制（ink / spark / coin 等少量粒子类型）
         switch (this.type) {
             case 'ink':
                 this._renderInk(ctx);
                 break;
-            case 'gold':
-                this._renderGold(ctx);
-                break;
             case 'coin':
                 this._renderCoin(ctx);
                 break;
-            case 'trail':
-                this._renderTrail(ctx);
-                break;
-            case 'bubble':
-                this._renderBubble(ctx);
-                break;
-            case 'flame':
-                this._renderFlame(ctx);
-                break;
             case 'spark':
                 this._renderSpark(ctx);
-                break;
-            case 'scaleSpark':
-                this._renderScaleSpark(ctx);
-                break;
-            case 'waterFlow':
-                this._renderWaterFlow(ctx);
-                break;
-            case 'gillBubble':
-                this._renderGillBubble(ctx);
-                break;
-            case 'hitFlash':
-                this._renderHitFlash(ctx);
                 break;
             default:
                 this._renderDefault(ctx);
@@ -327,12 +323,179 @@ export class Particle {
 }
 
 export class ParticleSystem {
-    constructor(maxParticles = 800) {
+    /**
+     * @param {number} maxParticles - 最大活跃粒子数（high=300, medium=200, low=100）
+     */
+    constructor(maxParticles = 300) {
         this._particles = [];
         this._maxParticles = maxParticles;
         this._bubbleTimer = 0;
         // v2：水流粒子生成计时
         this._waterFlowTimer = 0;
+
+        // ===== 性能优化：Particle 对象池 =====
+        this._particlePool = [];
+        this._maxPoolSize = 400;
+        // 预热：预分配 300 个 Particle 对象
+        for (let i = 0; i < 300; i++) {
+            this._particlePool.push(new Particle());
+        }
+
+        // ===== 性能优化：预渲染软粒子精灵到 OffscreenCanvas =====
+        this._initSprites();
+    }
+
+    /**
+     * 从对象池获取一个 Particle
+     */
+    _acquireParticle() {
+        let p = this._particlePool.pop();
+        if (!p) {
+            p = new Particle();
+        }
+        return p;
+    }
+
+    /**
+     * 释放 Particle 回对象池
+     */
+    _releaseParticle(p) {
+        if (!p) return;
+        p.reset();
+        if (this._particlePool.length < this._maxPoolSize) {
+            this._particlePool.push(p);
+        }
+    }
+
+    /**
+     * 预渲染各种软粒子精灵到 OffscreenCanvas
+     * 避免每帧为每个粒子调用 createRadialGradient
+     */
+    _initSprites() {
+        const S = 128; // 精灵分辨率
+        const sprites = {};
+
+        /**
+         * 创建径向渐变软圆精灵
+         * @param {Array} stops - [[offset, color], ...]
+         * @param {number} [radiusRatio=1] - 绘制半径占画布一半的比例
+         */
+        const makeSoftCircle = (stops, radiusRatio = 1) => {
+            const c = document.createElement('canvas');
+            c.width = S; c.height = S;
+            const ctx = c.getContext('2d');
+            const r = (S / 2) * radiusRatio;
+            const grad = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, r);
+            for (const [offset, color] of stops) {
+                grad.addColorStop(offset, color);
+            }
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(S / 2, S / 2, r, 0, Math.PI * 2);
+            ctx.fill();
+            return c;
+        };
+
+        // default：白色软圆
+        sprites.default = makeSoftCircle([
+            [0, 'rgba(255,255,255,1)'],
+            [0.6, 'rgba(255,255,255,0.75)'],
+            [1, 'rgba(255,255,255,0)']
+        ]);
+
+        // gold：金色发光圆点
+        sprites.gold = makeSoftCircle([
+            [0, 'rgba(255,255,255,1)'],
+            [0.3, 'rgba(255,215,0,1)'],
+            [1, 'rgba(255,215,0,0)']
+        ], 0.7);
+
+        // bubble：珍珠气泡（含高光）
+        {
+            const c = document.createElement('canvas');
+            c.width = S; c.height = S;
+            const ctx = c.getContext('2d');
+            const r = S / 2;
+            const grad = ctx.createRadialGradient(S/2 - r*0.3, S/2 - r*0.3, 0, S/2, S/2, r);
+            grad.addColorStop(0, 'rgba(255,255,255,0.8)');
+            grad.addColorStop(0.5, 'rgba(54,224,232,0.2)');
+            grad.addColorStop(1, 'rgba(54,224,232,0.05)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(S/2, S/2, r, 0, Math.PI * 2);
+            ctx.fill();
+            // 高光点
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.beginPath();
+            ctx.arc(S/2 - r*0.3, S/2 - r*0.3, r*0.2, 0, Math.PI * 2);
+            ctx.fill();
+            sprites.bubble = c;
+        }
+
+        // flame：红金色火焰
+        sprites.flame = makeSoftCircle([
+            [0, 'rgba(255,255,255,1)'],
+            [0.2, 'rgba(255,215,0,1)'],
+            [0.5, 'rgba(255,107,53,1)'],
+            [1, 'rgba(255,69,0,0)']
+        ], 0.6);
+
+        // scaleSpark：鱼鳞闪光（白/金自发光小点）
+        sprites.scaleSpark = makeSoftCircle([
+            [0, 'rgba(255,255,255,1)'],
+            [0.4, 'rgba(255,215,0,0.8)'],
+            [1, 'rgba(255,215,0,0)']
+        ]);
+
+        // waterFlow：水流微光（淡蓝）
+        sprites.waterFlow = makeSoftCircle([
+            [0, 'rgba(200,230,255,1)'],
+            [1, 'rgba(136,204,255,0)']
+        ]);
+
+        // gillBubble：鱼鳃气泡（淡蓝半透明）
+        {
+            const c = document.createElement('canvas');
+            c.width = S; c.height = S;
+            const ctx = c.getContext('2d');
+            const r = S / 2;
+            const grad = ctx.createRadialGradient(S/2 - r*0.3, S/2 - r*0.3, 0, S/2, S/2, r);
+            grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+            grad.addColorStop(0.6, 'rgba(190,232,255,0.18)');
+            grad.addColorStop(1, 'rgba(190,232,255,0.02)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(S/2, S/2, r, 0, Math.PI * 2);
+            ctx.fill();
+            sprites.gillBubble = c;
+        }
+
+        // hitFlash：受击白闪
+        sprites.hitFlash = makeSoftCircle([
+            [0, 'rgba(255,255,255,1)'],
+            [0.5, 'rgba(255,255,255,0.6)'],
+            [1, 'rgba(255,255,255,0)']
+        ]);
+
+        // trail：拉长的流光拖尾
+        {
+            const w = 256, h = 64;
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            const ctx = c.getContext('2d');
+            const grad = ctx.createLinearGradient(0, h/2, w, h/2);
+            grad.addColorStop(0, 'rgba(54,224,232,0)');
+            grad.addColorStop(0.5, 'rgba(54,224,232,1)');
+            grad.addColorStop(1, 'rgba(54,224,232,0.5)');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(w/2, h/2, w/2, h/4, 0, 0, Math.PI * 2);
+            ctx.fill();
+            sprites.trail = c;
+        }
+
+        // 注册到 Particle 类（供 render 使用）
+        Particle.sprites = sprites;
     }
 
     /**
@@ -349,7 +512,7 @@ export class ParticleSystem {
             const speed = Utils.random(config.speedMin || 50, config.speedMax || 200);
 
             const type = config.type || 'normal';
-            const p = new Particle();
+            const p = this._acquireParticle();
             p.init({
                 x: x + Utils.random(-5, 5),
                 y: y + Utils.random(-5, 5),
@@ -376,7 +539,7 @@ export class ParticleSystem {
      */
     trail(x, y, config) {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x, y,
             vx: Utils.random(-10, 10),
@@ -465,7 +628,7 @@ export class ParticleSystem {
      */
     spawnBubble(canvasWidth, canvasHeight) {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x: Utils.random(0, canvasWidth),
             y: canvasHeight + 20,
@@ -487,7 +650,7 @@ export class ParticleSystem {
      */
     emitScaleSpark(x, y, color = '#FFFFFF') {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x: x + Utils.random(-3, 3),
             y: y + Utils.random(-3, 3),
@@ -511,7 +674,7 @@ export class ParticleSystem {
      */
     emitWaterFlow(canvasWidth, canvasHeight) {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x: Utils.random(0, canvasWidth),
             y: canvasHeight + Utils.random(0, 50),
@@ -535,7 +698,7 @@ export class ParticleSystem {
      */
     emitGillBubble(x, y) {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x: x + Utils.random(-4, 4),
             y: y + Utils.random(-4, 4),
@@ -561,7 +724,7 @@ export class ParticleSystem {
      */
     emitHitFlash(x, y) {
         if (this._particles.length >= this._maxParticles) return;
-        const p = new Particle();
+        const p = this._acquireParticle();
         p.init({
             x, y,
             vx: 0,
@@ -604,6 +767,7 @@ export class ParticleSystem {
             p.update(dt);
             if (!p._active) {
                 this._particles.splice(i, 1);
+                this._releaseParticle(p);
             }
         }
     }
@@ -623,6 +787,10 @@ export class ParticleSystem {
     }
 
     clear() {
+        // 释放所有活跃粒子回对象池
+        for (const p of this._particles) {
+            this._releaseParticle(p);
+        }
         this._particles = [];
     }
 

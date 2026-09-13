@@ -13,7 +13,7 @@ export const GameConfig = {
 
     // ===== 玩家初始数据 =====
     player: {
-        initialCoins: 10000,
+        initialCoins: 100000000,
         initialDiamonds: 10,
         initialName: '龙宫新手',
         initialAvatar: 0,

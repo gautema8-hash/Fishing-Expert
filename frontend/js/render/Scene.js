@@ -33,6 +33,11 @@ export class Scene {
         this._nearSilhouettes = this._generateNearSilhouettes();
         this._distantFishSchools = this._generateDistantFishSchools();
         this._bubbles = [];
+
+        // ===== 性能优化：静态背景离屏缓存 =====
+        this._farRidgeCanvas = null;    // 远景山脉离屏画布
+        this._bgStaticCanvas = null;    // 背景静态层离屏画布（渐变+龙宫+龙柱）
+        this._staticBgKey = '';         // 颜色缓存 key（变化时重建）
     }
 
     _generateCoralColumns() {
@@ -143,6 +148,67 @@ export class Scene {
         return schools;
     }
 
+    /**
+     * 性能优化：构建/更新静态背景离屏缓存
+     * 包含：远景山脉、深海渐变、龙宫轮廓、龙柱
+     * 仅在昼夜颜色变化时重建，避免每帧 createLinearGradient + 路径构建
+     */
+    _buildStaticBgCache() {
+        const colors = this.getDayColors();
+        // 用颜色字符串作为缓存 key（颜色未变则跳过重建）
+        const key = colors.bgTop + colors.bgBottom + colors.fog;
+        if (key === this._staticBgKey && this._farRidgeCanvas && this._bgStaticCanvas) {
+            return; // 颜色未变，跳过
+        }
+        this._staticBgKey = key;
+
+        const W = this.width + 200;
+        const H = this.height + 200;
+
+        // --- 远景山脉离屏画布 ---
+        if (!this._farRidgeCanvas) {
+            this._farRidgeCanvas = document.createElement('canvas');
+        }
+        this._farRidgeCanvas.width = W;
+        this._farRidgeCanvas.height = H;
+        const frCtx = this._farRidgeCanvas.getContext('2d');
+        frCtx.clearRect(0, 0, W, H);
+
+        for (let l = 0; l < this._farRidges.length; l++) {
+            const pts = this._farRidges[l];
+            frCtx.fillStyle = Utils.rgba(colors.fog, l === 0 ? 0.12 : 0.2);
+            frCtx.beginPath();
+            frCtx.moveTo(-200, this.height + 100);
+            for (const p of pts) {
+                frCtx.lineTo(p.x - 200, p.y);
+            }
+            frCtx.lineTo(this.width + 200, this.height + 100);
+            frCtx.closePath();
+            frCtx.fill();
+        }
+
+        // --- 背景静态层离屏画布（渐变+龙宫+龙柱） ---
+        if (!this._bgStaticCanvas) {
+            this._bgStaticCanvas = document.createElement('canvas');
+        }
+        this._bgStaticCanvas.width = W;
+        this._bgStaticCanvas.height = H;
+        const bgCtx = this._bgStaticCanvas.getContext('2d');
+        bgCtx.clearRect(0, 0, W, H);
+
+        // 深海渐变背景
+        const gradient = bgCtx.createLinearGradient(0, 0, 0, this.height);
+        gradient.addColorStop(0, colors.bgTop);
+        gradient.addColorStop(1, colors.bgBottom);
+        bgCtx.fillStyle = gradient;
+        bgCtx.fillRect(-100, -100, W, H);
+
+        // 远景龙宫轮廓
+        this._renderPalaceSilhouette(bgCtx, colors);
+
+        // 龙柱和珊瑚柱保持动态绘制（需要独立滚动），不缓存
+    }
+
     update(dt) {
         this._time += dt;
         this._scrollOffset += GameConfig.scene.bgScrollSpeed * dt;
@@ -190,29 +256,24 @@ export class Scene {
 
     /**
      * 渲染最远层（视差 0.05）：朦胧远山/海沟轮廓 + 远景鱼群剪影，极慢移动
+     * 性能优化：远山轮廓预渲染到离屏画布，每帧仅 drawImage
      */
     renderFarBackground(ctx, camera) {
-        const colors = this.getDayColors();
         const offset = camera.getLayerOffset(0.05);
+
+        // 确保静态缓存最新
+        this._buildStaticBgCache();
 
         ctx.save();
         ctx.translate(offset.x, offset.y);
 
-        // 远山/海沟剪影（两层，越远越淡）
-        for (let l = 0; l < this._farRidges.length; l++) {
-            const pts = this._farRidges[l];
-            ctx.fillStyle = Utils.rgba(colors.fog, l === 0 ? 0.12 : 0.2);
-            ctx.beginPath();
-            ctx.moveTo(-200, this.height + 100);
-            for (const p of pts) {
-                ctx.lineTo(p.x - 200, p.y);
-            }
-            ctx.lineTo(this.width + 200, this.height + 100);
-            ctx.closePath();
-            ctx.fill();
+        // 绘制预渲染的远景山脉（静态）
+        if (this._farRidgeCanvas) {
+            ctx.drawImage(this._farRidgeCanvas, 0, 0);
         }
 
-        // 远景鱼群剪影（半透明，缓慢水平游动 + 轻微上下浮动）
+        // 远景鱼群剪影（动态，半透明，缓慢水平游动 + 轻微上下浮动）
+        const colors = this.getDayColors();
         for (const school of this._distantFishSchools) {
             const sx = (((school.x - this._scrollOffset * 0.05 + this._time * school.speed) % (this.width + 400)) + this.width + 400) % (this.width + 400) - 200;
             for (const f of school.fish) {
@@ -238,32 +299,31 @@ export class Scene {
 
     /**
      * 渲染背景层（视差 0.15）：深海渐变 + 龙宫轮廓 + 雾浓度 0.4
+     * 性能优化：渐变和龙宫轮廓预渲染到离屏画布，每帧仅 drawImage
      */
     renderBackground(ctx, camera) {
         const colors = this.getDayColors();
         const offset = camera.getLayerOffset(0.15);
 
+        // 确保静态缓存最新
+        this._buildStaticBgCache();
+
         ctx.save();
         ctx.translate(offset.x, offset.y);
 
-        // 深海渐变背景
-        const gradient = ctx.createLinearGradient(0, 0, 0, this.height);
-        gradient.addColorStop(0, colors.bgTop);
-        gradient.addColorStop(1, colors.bgBottom);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(-100, -100, this.width + 200, this.height + 200);
+        // 绘制预渲染的静态背景（渐变 + 龙宫轮廓）
+        if (this._bgStaticCanvas) {
+            ctx.drawImage(this._bgStaticCanvas, 0, 0);
+        }
 
-        // 远景龙宫轮廓（朦胧，含塔楼/飞檐细节）
-        this._renderPalaceSilhouette(ctx, colors);
-
-        // 远景珊瑚柱
+        // 远景龙柱（动态滚动，单独绘制）
         for (const col of this._coralColumns) {
             if (col.type === 'dragon_pillar') {
                 this._renderDragonPillar(ctx, col, colors, 0.3);
             }
         }
 
-        // 远景层雾（浓度 0.4，随水流轻微流动）
+        // 远景层雾（浓度 0.4，随水流轻微流动）— 动态
         const fogRgb = Utils.hexToRgb(colors.fog);
         const flow = Math.sin(this._time * 0.15) * 20;
         const fogGrad = ctx.createLinearGradient(flow, 0, flow, this.height);
@@ -591,6 +651,8 @@ export class Scene {
     resize(width, height) {
         this.width = width;
         this.height = height;
+        // 尺寸变化时使静态背景缓存失效，触发重建
+        this._staticBgKey = '';
     }
 
     get dayPhase() {

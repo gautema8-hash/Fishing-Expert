@@ -110,10 +110,10 @@ export class EconomySystem {
     }
 
     /**
-     * 获取显示金币数（格式化）
+     * 获取显示金币数（大单位格式化：万/亿/万亿）
      */
     getDisplayCoins() {
-        return Utils.formatNumber(Math.floor(this.displayCoins));
+        return Utils.formatCoin(Math.floor(this.displayCoins));
     }
 
     getDisplayDiamonds() {

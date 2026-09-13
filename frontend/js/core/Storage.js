@@ -161,7 +161,7 @@ export class SaveManager {
                 id: Utils.generateId(),
                 name: '龙宫新手',
                 avatar: 0,
-                coins: 10000,
+                coins: 100000000,
                 diamonds: 10,
                 vipLevel: 0,
                 totalRecharge: 0,

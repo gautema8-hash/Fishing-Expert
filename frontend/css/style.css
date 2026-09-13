@@ -56,7 +56,18 @@ html, body {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(180deg, var(--primary-dark) 0%, var(--primary) 50%, var(--primary-dark) 100%);
+    /* 图片加载前兜底深色背景，确保文字可读 */
+    background-color: #06223A;
+    background-image:
+        /* 暗角叠加，聚焦中心 */
+        radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.55) 100%),
+        /* 深色半透明叠加层 */
+        linear-gradient(180deg, rgba(3, 16, 31, 0.72) 0%, rgba(6, 34, 58, 0.62) 50%, rgba(3, 16, 31, 0.78) 100%),
+        /* 背景图 */
+        url('../assets/backgrounds/loading-bg.jpg');
+    background-position: center;
+    background-size: cover;
+    background-repeat: no-repeat;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -70,62 +81,117 @@ html, body {
 
 .loading-content {
     text-align: center;
+    position: relative;
+    z-index: 2;
 }
 
 .loading-logo {
     margin-bottom: 40px;
 }
 
-.logo-icon {
-    font-size: 80px;
+/* 龙形象图片：金色发光 + 呼吸缩放 */
+.logo-dragon-img {
+    width: 120px;
+    height: 120px;
     display: block;
-    animation: float 3s ease-in-out infinite;
-    filter: drop-shadow(0 0 20px var(--gold));
+    margin: 0 auto 18px;
+    /* 金色发光 */
+    filter: drop-shadow(0 0 18px rgba(255, 215, 0, 0.75)) drop-shadow(0 0 42px rgba(255, 180, 0, 0.45));
+    animation: dragonBreath 3s ease-in-out infinite;
+    -webkit-filter: drop-shadow(0 0 18px rgba(255, 215, 0, 0.75));
+}
+
+@keyframes dragonBreath {
+    0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 14px rgba(255, 215, 0, 0.6)) drop-shadow(0 0 34px rgba(255, 180, 0, 0.35)); }
+    50%      { transform: scale(1.08);  filter: drop-shadow(0 0 26px rgba(255, 215, 0, 0.95)) drop-shadow(0 0 60px rgba(255, 180, 0, 0.6)); }
 }
 
 .logo-title {
-    font-size: 42px;
+    font-size: 48px;
     font-weight: bold;
+    margin-top: 10px;
+    letter-spacing: 10px;
+}
+
+/* 逐字蹦跳动画 + 金色渐变文字 */
+.bounce-char {
+    display: inline-block;
     background: linear-gradient(180deg, var(--gold-light) 0%, var(--gold) 50%, var(--gold-dark) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
-    margin-top: 10px;
-    letter-spacing: 8px;
+    text-shadow: 0 0 26px rgba(255, 215, 0, 0.55);
+    animation: charBounce 0.6s ease-in-out infinite;
+}
+
+@keyframes charBounce {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-12px); }
 }
 
 .logo-subtitle {
     font-size: 18px;
     color: var(--accent);
     letter-spacing: 6px;
-    margin-top: 5px;
-    text-shadow: 0 0 10px var(--accent);
+    margin-top: 10px;
+    animation: subtitleGlow 2.4s ease-in-out infinite;
+}
+
+@keyframes subtitleGlow {
+    0%, 100% { opacity: 0.75; text-shadow: 0 0 8px var(--accent); }
+    50%      { opacity: 1;    text-shadow: 0 0 18px var(--accent), 0 0 30px rgba(54, 224, 232, 0.6); }
 }
 
 .loading-bar-container {
-    width: 280px;
-    height: 6px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 3px;
+    width: 300px;
+    height: 8px;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 6px;
     margin: 0 auto 15px;
     overflow: hidden;
-    border: 1px solid var(--glass-border);
+    /* 金色边框 + 外发光 */
+    border: 1px solid rgba(255, 215, 0, 0.55);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35), inset 0 0 6px rgba(0, 0, 0, 0.5);
 }
 
 .loading-bar {
+    position: relative;
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, var(--accent) 0%, var(--gold) 100%);
-    border-radius: 3px;
-    box-shadow: 0 0 10px var(--accent);
+    /* 金色渐变进度条 */
+    background: linear-gradient(90deg, #B8860B 0%, #FFD700 50%, #FFF8DC 100%);
+    border-radius: 6px;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.8);
     transition: width 0.3s ease;
+    overflow: hidden;
+}
+
+/* 鎏金流光：从左到右高光扫过 */
+.loading-bar-shine {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.85) 50%, transparent 100%);
+    animation: barShine 1.4s linear infinite;
+}
+
+@-webkit-keyframes barShine {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
+}
+
+@keyframes barShine {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(300%); }
 }
 
 .loading-text {
     font-size: 14px;
     color: var(--accent);
-    opacity: 0.8;
+    opacity: 0.85;
+    letter-spacing: 2px;
 }
 
 .loading-error {

@@ -143,6 +143,45 @@ export const Utils = {
         return Math.floor(num).toString();
     },
 
+    /**
+     * 金币大数字格式化（万/亿/万亿单位）
+     * - 小于10000：直接显示千分位数字（如 9,999）
+     * - 1万~1亿：显示 "X.XX万"（如 1.23万）
+     * - 1亿~1万亿：显示 "X.XX亿"（如 12.34亿）
+     * - 超过1万亿：显示 "X.XX万亿"（如 1.23万亿）
+     * 保留2位小数并去除末尾多余的0（1.20亿 -> 1.2亿）
+     * @param {number} amount 金币数量
+     * @returns {string} 格式化后的字符串
+     */
+    formatCoin(amount) {
+        const num = Number(amount) || 0;
+        const abs = Math.abs(num);
+        const sign = num < 0 ? '-' : '';
+
+        // 小于1万：千分位整数显示
+        if (abs < 10000) {
+            return sign + Math.floor(abs).toLocaleString('en-US');
+        }
+        // 1万亿及以上：X.XX万亿
+        if (abs >= 1e12) {
+            return sign + this._trimZeros(abs / 1e12) + '万亿';
+        }
+        // 1亿 ~ 1万亿：X.XX亿
+        if (abs >= 1e8) {
+            return sign + this._trimZeros(abs / 1e8) + '亿';
+        }
+        // 1万 ~ 1亿：X.XX万
+        return sign + this._trimZeros(abs / 1e4) + '万';
+    },
+
+    /**
+     * 保留2位小数并去除末尾多余的0与小数点
+     * 1.20 -> 1.2；1.00 -> 1；12.34 -> 12.34
+     */
+    _trimZeros(value) {
+        return value.toFixed(2).replace(/\.?0+$/, '');
+    },
+
     // 生成唯一 ID
     generateId() {
         return Date.now().toString(36) + Math.random().toString(36).substr(2, 9);

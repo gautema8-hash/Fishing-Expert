@@ -3,6 +3,7 @@
  * 离线金币收益、首充双倍、回归礼包、每日免费转盘
  */
 import { Events } from '../core/EventBus.js';
+import { Utils } from '../core/Utils.js';
 
 export class OfflineSystem {
     constructor(eventBus, saveData, economy) {
@@ -70,7 +71,7 @@ export class OfflineSystem {
     claimOfflineEarnings(amount) {
         if (amount > 0) {
             this.economy.addCoins(amount, 'offline');
-            this.eventBus.emit(Events.SHOW_TOAST, `离线收益 +${amount.toLocaleString()} 金币`);
+            this.eventBus.emit(Events.SHOW_TOAST, `离线收益 +${Utils.formatCoin(amount)} 金币`);
         }
     }
 

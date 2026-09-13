@@ -96,8 +96,9 @@ export class Game {
 
         // 场景
         this.scene = new Scene(this.width, this.height);
+        // 性能优化：粒子上限按画质分级 300/200/100（原为 800/400/150）
         this.particleSystem = new ParticleSystem(
-            this._quality === 'high' ? 800 : this._quality === 'medium' ? 400 : 150
+            this._quality === 'high' ? 300 : this._quality === 'medium' ? 200 : 100
         );
         this.waterRipple = new WaterRippleManager();
         this.caustics = new Caustics(this.width, this.height);
@@ -204,6 +205,16 @@ export class Game {
         // 窗口大小变化
         window.addEventListener('resize', () => this._onResize());
 
+        // 性能优化：标签页不可见时自动暂停，可见时恢复
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this._paused = true;
+            } else if (this.state === 'playing') {
+                this._paused = false;
+                this._lastTime = performance.now();
+            }
+        });
+
         this.state = 'playing';
         this._lastTime = performance.now();
 
@@ -254,7 +265,7 @@ export class Game {
     _bindEvents() {
         // 金币变化
         this.eventBus.on(Events.COIN_CHANGE, (coins) => {
-            this.topBar.updateCoins(Utils.formatNumber(Math.floor(coins)));
+            this.topBar.updateCoins(Utils.formatCoin(Math.floor(coins)));
         });
 
         // 金币不足
@@ -277,7 +288,7 @@ export class Game {
 
         // 关卡完成
         this.eventBus.on(Events.LEVEL_COMPLETE, (data) => {
-            this.uiManager.showToast(`第${data.level}关完成！获得${data.stars}星，奖励${data.reward.coins}金币`);
+            this.uiManager.showToast(`第${data.level}关完成！获得${data.stars}星，奖励${Utils.formatCoin(data.reward.coins)}金币`);
             this.economy.addCoins(data.reward.coins, 'level_reward');
             if (data.reward.diamonds) {
                 this.economy.addDiamonds(data.reward.diamonds);
@@ -287,7 +298,7 @@ export class Game {
 
         // BOSS 出场
         this.eventBus.on(Events.BOSS_WARNING, () => {
-            this.uiManager.showToast('⚠️ 东海龙王即将降临！');
+            this.uiManager.showToast('⚠️ 中国金龙即将降临！');
             this.audio.play('boss');
             this.renderer.camera.shake(10, 0.5);
             // 触发全屏预警特效
@@ -296,7 +307,7 @@ export class Game {
         });
 
         this.eventBus.on(Events.BOSS_APPEAR, () => {
-            this.uiManager.showToast('🐉 东海龙王出现了！');
+            this.uiManager.showToast('🐉 中国金龙出现了！');
             this._bossWarning.active = false;
         });
 
@@ -910,7 +921,7 @@ export class Game {
                 const reward = rewards[selectedIndex];
                 if (reward.coins) {
                     this.economy.addCoins(reward.coins, 'wheel');
-                    this.uiManager.showToast(`获得 ${reward.coins} 金币！`);
+                    this.uiManager.showToast(`获得 ${Utils.formatCoin(reward.coins)} 金币！`);
                 } else if (reward.diamonds) {
                     this.economy.addDiamonds(reward.diamonds);
                     this.uiManager.showToast(`获得 ${reward.diamonds} 钻石！`);
@@ -1159,7 +1170,8 @@ export class Game {
         this._quality = quality;
         this.saveData.settings.quality = quality;
         this.renderer.setQuality(quality);
-        const maxParticles = quality === 'high' ? 800 : quality === 'medium' ? 400 : 150;
+        // 性能优化：粒子上限 300/200/100
+        const maxParticles = quality === 'high' ? 300 : quality === 'medium' ? 200 : 100;
         this.particleSystem.setMaxParticles(maxParticles);
         this.caustics.setEnabled(quality !== 'low');
         this.volumetricFog.setEnabled(quality !== 'low');
@@ -1320,6 +1332,11 @@ export class Game {
 
         if (!this._paused) {
             this._accumulator += frameTime;
+            // 性能优化：限制最大累积帧数（最多5帧），防止标签页切回后一次性追赶大量update
+            const maxAccumulated = this._fixedDt * 5;
+            if (this._accumulator > maxAccumulated) {
+                this._accumulator = maxAccumulated;
+            }
             while (this._accumulator >= this._fixedDt) {
                 this.update(this._fixedDt / 1000);
                 this._accumulator -= this._fixedDt;
@@ -1331,10 +1348,20 @@ export class Game {
     }
 
     _checkPerformance() {
+        // 画质自适应降级
         if (this._quality === 'high' && this._fps < 25) {
             this._setQuality('medium');
         } else if (this._quality === 'medium' && this._fps < 18) {
             this._setQuality('low');
+        }
+
+        // 性能优化：根据 FPS 动态调整鱼数量上限
+        if (this._fps > 55) {
+            this.fishManager.setDynamicFishMultiplier(1.0);
+        } else if (this._fps < 30) {
+            this.fishManager.setDynamicFishMultiplier(0.6);
+        } else if (this._fps < 45) {
+            this.fishManager.setDynamicFishMultiplier(0.8);
         }
     }
 
@@ -1551,7 +1578,7 @@ export class Game {
             this.renderer.camera.shake(GameConfig.screenShake.bossAppearIntensity, GameConfig.screenShake.bossAppearDuration);
             this.taskSystem.updateProgress('boss', 1);
             this.eventBus.emit(Events.BOSS_KILL, fish);
-            this.uiManager.showToast('🐉 东海龙王被击杀！获得大量金币！');
+            this.uiManager.showToast('🐉 中国金龙被击杀！获得大量金币！');
         } else {
             this.particleSystem.inkExplosion(fish.x, fish.y, fish.size > 50 ? 1.5 : 1);
             if (fish.size > 50) {
@@ -1836,6 +1863,8 @@ export class Game {
     start() {
         this.state = 'playing';
         this._lastTime = performance.now();
+        // 初始推送金币/钻石显示（大单位格式化）
+        this.topBar.updateCoins(Utils.formatCoin(Math.floor(this.economy.coins)));
         this._updateMailBadge();
         // 新玩家自动开始新手引导
         if (!this.tutorialSystem.isCompleted()) {

@@ -1,6 +1,12 @@
 /**
  * 鱼群管理器
  * 鱼群生成、Boids 行为（分离/对齐/凝聚）、BOSS 驱散
+ *
+ * 性能优化：
+ *  - Fish 对象池：预分配复用，避免频繁 new/GC
+ *  - 景深分组渲染：far/mid/near 三数组，无需每帧 sort
+ *  - 存活鱼缓存：update 结束时填充，避免每帧多次 getAllAliveFish 数组分配
+ *  - 动态鱼数：根据 FPS 自动调整 _maxFish
  */
 import { Fish } from './Fish.js';
 import { BossDragonKing } from './Boss.js';
@@ -22,7 +28,29 @@ export class FishManager {
         this._bossSpawnInterval = 60;
         this._frozen = false;
         this._nextSpawnInterval = 2;       // 下一次生成间隔（随机）
-        this._recentFishTypes = [];        // 最近生成的鱼类（用于种类多样性）
+        this._recentFishTypes = [];        // 最近生成的鱼类（用于种类多样性，记忆长度8）
+        this._recentMemoryLength = 8;      // 最近生成记忆窗口长度
+
+        // ===== 性能优化：Fish 对象池 =====
+        this._fishPool = [];               // 空闲 Fish 对象栈
+        this._maxPoolSize = 60;            // 池最大容量（含在途复用）
+        // 预热：预分配 20 个 Fish 对象
+        for (let i = 0; i < 20; i++) {
+            this._fishPool.push(new Fish());
+        }
+
+        // ===== 性能优化：景深分组渲染 =====
+        this._farFish = [];                // 远景鱼（depth='far'）
+        this._midFish = [];                // 中景鱼（depth='mid'）
+        this._nearFish = [];               // 近景鱼（depth='near'）
+
+        // ===== 性能优化：存活鱼缓存 =====
+        this._aliveFishCache = [];         // 缓存的存活鱼数组
+        this._aliveFishCacheDirty = true;  // 缓存是否需要重建
+
+        // ===== 性能优化：动态鱼数倍率 =====
+        this._fishMultiplier = 1.0;       // 当前鱼数倍率（FPS 自适应调整）
+        this._baseMaxFish = 25;           // 关卡设定的基础上限
     }
 
     /**
@@ -37,9 +65,74 @@ export class FishManager {
      */
     setLevelParams(params) {
         this._currentLevel = params.level;
-        this._maxFish = params.maxFish;
+        this._baseMaxFish = params.maxFish;
+        this._applyFishMultiplier();
         this._bossEnabled = params.bossEnabled;
         this._bossSpawnInterval = params.bossSpawnInterval;
+    }
+
+    /**
+     * 性能优化：动态设置鱼数倍率（FPS 自适应）
+     * @param {number} mult - 倍率 0.6~1.0
+     */
+    setDynamicFishMultiplier(mult) {
+        this._fishMultiplier = Math.max(0.5, Math.min(1.0, mult));
+        this._applyFishMultiplier();
+    }
+
+    /**
+     * 应用鱼数倍率到 _maxFish
+     */
+    _applyFishMultiplier() {
+        this._maxFish = Math.max(5, Math.floor(this._baseMaxFish * this._fishMultiplier));
+    }
+
+    // ===== 对象池辅助方法 =====
+
+    /**
+     * 从对象池获取一个 Fish（池空则新建）
+     * @returns {Fish}
+     */
+    _acquireFish() {
+        let fish = this._fishPool.pop();
+        if (!fish) {
+            fish = new Fish();
+        }
+        return fish;
+    }
+
+    /**
+     * 将 Fish 释放回对象池（调用 reset 清理状态）
+     * @param {Fish} fish
+     */
+    _releaseFish(fish) {
+        if (!fish) return;
+        fish.reset();
+        fish._active = false;
+        if (this._fishPool.length < this._maxPoolSize) {
+            this._fishPool.push(fish);
+        }
+    }
+
+    /**
+     * 将鱼按 depth 归入对应渲染组
+     */
+    _addToDepthGroup(fish) {
+        const depth = fish.config?.depth || 'mid';
+        if (depth === 'far') this._farFish.push(fish);
+        else if (depth === 'near') this._nearFish.push(fish);
+        else this._midFish.push(fish);
+    }
+
+    /**
+     * 从渲染组中移除鱼
+     */
+    _removeFromDepthGroup(fish) {
+        const depth = fish.config?.depth || 'mid';
+        const group = depth === 'far' ? this._farFish
+                    : depth === 'near' ? this._nearFish : this._midFish;
+        const idx = group.indexOf(fish);
+        if (idx !== -1) group.splice(idx, 1);
     }
 
     /**
@@ -86,9 +179,11 @@ export class FishManager {
                 }
             }
 
-            // 移除死亡/超出边界的鱼
+            // 移除死亡/超出边界的鱼，释放回对象池
             if (!fish._active || fish.state === 'dead') {
                 this.fishes.splice(i, 1);
+                this._removeFromDepthGroup(fish);
+                this._releaseFish(fish);
             }
         }
 
@@ -100,18 +195,27 @@ export class FishManager {
                 this.boss = null;
             }
         }
+
+        // 标记存活鱼缓存为脏（下一帧重建）
+        this._aliveFishCacheDirty = true;
     }
 
     _spawnFish(gameWidth, gameHeight) {
         const sys = FishConfig.spawnSystem;
         const spawnList = FishConfig.getSpawnList(this._currentLevel);
 
+        // 同屏种类多样性检查：种类过少时强制从稀有/未出现种类中挑选
+        const onScreenBefore = this._countOnScreenTypes();
+        const distinctTypes = onScreenBefore.size;
+        // 同屏鱼数量足够时（>=12），目标至少8~10种；不足5种时强制多样性
+        const needDiversity = distinctTypes < 5 && this.fishes.length >= 10;
+
         // 单次生成 1~maxFishPerSpawn 条，种类尽量多样
         const count = Utils.randomInt(1, sys.maxFishPerSpawn || 3);
         for (let n = 0; n < count; n++) {
             if (this.fishes.length >= this._maxFish) break;
 
-            const selected = this._pickDiverseFish(spawnList);
+            const selected = this._pickDiverseFish(spawnList, needDiversity);
             const fishType = selected.id;
             const config = FishConfig.types[fishType];
             if (!config) continue;
@@ -126,7 +230,7 @@ export class FishManager {
             const dir = this._pickSpawnDirection(config.spawnDirections);
             const pos = this._spawnPosByDirection(dir, gameWidth, gameHeight);
 
-            const fish = new Fish();
+            const fish = this._acquireFish();
             const side = Math.cos(pos.angle) >= 0 ? 1 : -1;
             fish.init(fishType, pos.x, pos.y, side);
             // init 只处理左右朝向，上下方向需手动覆盖 angle
@@ -140,6 +244,7 @@ export class FishManager {
             }
 
             this.fishes.push(fish);
+            this._addToDepthGroup(fish);
             this.eventBus.emit('fish:spawn', fish);
         }
     }
@@ -170,16 +275,58 @@ export class FishManager {
     }
 
     /**
-     * 加权随机选鱼，同时降低与最近生成种类重复的概率
+     * 统计当前屏幕上各鱼种的数量
+     * @returns {Map<string, number>} fishTypeId -> count
      */
-    _pickDiverseFish(spawnList) {
-        let selected = Utils.weightedRandom(spawnList);
-        // 若刚生成过该类鱼，按概率重抽一次以提高多样性
-        if (this._recentFishTypes.includes(selected.id) && Math.random() < 0.6) {
-            selected = Utils.weightedRandom(spawnList);
+    _countOnScreenTypes() {
+        const counts = new Map();
+        for (const fish of this.fishes) {
+            if (!fish || !fish._active || fish.state === 'dead') continue;
+            const id = fish.type || (fish.config && fish.config.id);
+            if (id) counts.set(id, (counts.get(id) || 0) + 1);
         }
+        return counts;
+    }
+
+    /**
+     * 加权随机选鱼，同时降低与最近生成种类重复的概率，
+     * 并结合"同屏种类计数"优先选择当前数量少/未出现的种类。
+     * @param {Array<{id:string, weight:number}>} spawnList
+     * @param {boolean} forceDiverse 同屏种类不足时，强制从稀有/未出现种类中选择
+     */
+    _pickDiverseFish(spawnList, forceDiverse = false) {
+        const onScreen = this._countOnScreenTypes();
+
+        // 强制多样性：同屏种类过少时，从"未出现"的种类中按权重挑选
+        if (forceDiverse) {
+            const unseen = spawnList.filter(item => !onScreen.has(item.id));
+            if (unseen.length > 0) {
+                return Utils.weightedRandom(unseen);
+            }
+        }
+
+        // 根据同屏数量对权重做调整：同屏数量越少权重越高
+        // 数量为0（未出现）的种类权重放大，促进新种类上场
+        const boosted = spawnList.map(item => {
+            const cnt = onScreen.get(item.id) || 0;
+            let bonus = 1;
+            if (cnt === 0) bonus = 3;            // 未出现的种类大幅加权
+            else if (cnt === 1) bonus = 1.6;
+            else if (cnt >= 4) bonus = 0.4;      // 已泛滥的种类降权
+            return { id: item.id, weight: item.weight * bonus };
+        });
+
+        let selected = Utils.weightedRandom(boosted);
+
+        // 若刚生成过该类鱼，按 0.8 概率重抽一次以提高多样性
+        if (this._recentFishTypes.includes(selected.id) && Math.random() < 0.8) {
+            selected = Utils.weightedRandom(boosted);
+        }
+
         this._recentFishTypes.push(selected.id);
-        if (this._recentFishTypes.length > 4) this._recentFishTypes.shift();
+        // 记忆窗口长度
+        const maxLen = this._recentMemoryLength || 8;
+        while (this._recentFishTypes.length > maxLen) this._recentFishTypes.shift();
         return selected;
     }
 
@@ -194,7 +341,7 @@ export class FishManager {
         const config = FishConfig.types[fishType];
         if (!config) return null;
 
-        const fish = new Fish();
+        const fish = this._acquireFish();
         const x = options.x !== undefined ? options.x : 0;
         const y = options.y !== undefined ? options.y : 0;
         const side = options.angle !== undefined ? (Math.cos(options.angle) >= 0 ? 1 : -1) : 1;
@@ -215,6 +362,7 @@ export class FishManager {
         }
 
         this.fishes.push(fish);
+        this._addToDepthGroup(fish);
         this.eventBus.emit('fish:spawn', fish);
         return fish;
     }
@@ -241,7 +389,7 @@ export class FishManager {
 
         for (let i = 0; i < schoolSize; i++) {
             if (this.fishes.length >= this._maxFish) break;
-            const fish = new Fish();
+            const fish = this._acquireFish();
             const offsetX = Utils.random(-80, 80);
             const offsetY = Utils.random(-50, 50);
             const side = Math.cos(pos.angle) >= 0 ? 1 : -1;
@@ -253,6 +401,7 @@ export class FishManager {
             fish._schoolOffset = { x: offsetX, y: offsetY };
             school.fishes.push(fish);
             this.fishes.push(fish);
+            this._addToDepthGroup(fish);
         }
 
         this.schools.push(school);
@@ -359,28 +508,31 @@ export class FishManager {
 
     /**
      * 获取所有可碰撞的鱼（用于锁定道具）
+     * 性能优化：使用缓存数组，避免每帧多次创建新数组
+     * 返回的数组只读，调用方不要修改
      */
     getAllAliveFish() {
-        const result = [];
-        for (const fish of this.fishes) {
-            if (fish.isAlive) result.push(fish);
+        if (this._aliveFishCacheDirty) {
+            this._aliveFishCache.length = 0;
+            for (const fish of this.fishes) {
+                if (fish.isAlive) this._aliveFishCache.push(fish);
+            }
+            if (this.boss && this.boss.state === 'alive') {
+                this._aliveFishCache.push(this.boss);
+            }
+            this._aliveFishCacheDirty = false;
         }
-        if (this.boss && this.boss.state === 'alive') {
-            result.push(this.boss);
-        }
-        return result;
+        return this._aliveFishCache;
     }
 
+    /**
+     * 性能优化：按景深分组渲染，无需每帧排序
+     * 远景先画，中景次之，近景最后，BOSS 最上层
+     */
     render(ctx) {
-        // 按景深排序：远景先画
-        const sorted = [...this.fishes].sort((a, b) => {
-            const depthOrder = { far: 0, mid: 1, near: 2 };
-            return (depthOrder[a.config?.depth] || 1) - (depthOrder[b.config?.depth] || 1);
-        });
-
-        for (const fish of sorted) {
-            fish.render(ctx);
-        }
+        for (const fish of this._farFish) fish.render(ctx);
+        for (const fish of this._midFish) fish.render(ctx);
+        for (const fish of this._nearFish) fish.render(ctx);
 
         // BOSS 最后画（在最上层）
         if (this.boss) {
@@ -389,11 +541,22 @@ export class FishManager {
     }
 
     clear() {
+        // 释放所有活动鱼回对象池
+        for (const fish of this.fishes) {
+            this._releaseFish(fish);
+        }
         this.fishes = [];
         this.schools = [];
         this.boss = null;
         this._spawnTimer = 0;
         this._bossTimer = 0;
+        // 清空景深分组
+        this._farFish.length = 0;
+        this._midFish.length = 0;
+        this._nearFish.length = 0;
+        // 清空存活鱼缓存
+        this._aliveFishCache.length = 0;
+        this._aliveFishCacheDirty = true;
     }
 
     get fishCount() {

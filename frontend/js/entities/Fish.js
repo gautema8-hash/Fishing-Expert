@@ -62,7 +62,8 @@ export class Fish {
         this._lastDt = 0.016;
 
         // ===== 新增：Verlet 鱼鳍物理 =====
-        this._finSys = null;
+        // 注意：_finSys 不在 reset 中置 null，以便对象池复用时重用 VerletSystem
+        // _setupFinPhysics() 会调用 sys.clear() 清空旧节点后重建
         this._chainPecL = null;
         this._chainPecR = null;
         this._chainDorsal = null;
@@ -165,15 +166,26 @@ export class Fish {
 
     /**
      * 为当前鱼构建鱼鳍边缘节点 Verlet 链
+     * 性能优化：复用已有 VerletSystem 对象（池化复用场景），避免每次 init 都 new
      */
     _setupFinPhysics() {
         const p = FishConfig.physics;
         const S = this.size;
-        const sys = new VerletSystem({
-            damping: p.damping,
-            iterations: p.iterations,
-            waterForce: { x: 0, y: 0 }
-        });
+
+        // 复用已创建的 VerletSystem，仅清空节点/约束后重建
+        // 首次调用时 this._finSys 为 null，需新建
+        if (!this._finSys) {
+            this._finSys = new VerletSystem({
+                damping: p.damping,
+                iterations: p.iterations,
+                waterForce: { x: 0, y: 0 }
+            });
+        } else {
+            // 清空旧节点和约束，重置索引
+            this._finSys.clear();
+        }
+
+        const sys = this._finSys;
 
         // 通用：从锚点向外伸展 k 个柔性节点
         const buildChain = (rx, ry, dx, dy, k, stiffness, mass) => {
