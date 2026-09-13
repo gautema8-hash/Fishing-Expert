@@ -91,6 +91,8 @@ export class Particle {
 
     render(ctx) {
         if (!this._active || this.alpha <= 0) return;
+        // 修复：size可能因衰减变为负数，导致createRadialGradient报错
+        if (this.size <= 0 || !isFinite(this.size)) return;
 
         ctx.save();
         ctx.globalAlpha = this.alpha;

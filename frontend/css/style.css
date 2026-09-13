@@ -4141,3 +4141,482 @@ html, body {
         height: 50px;
     }
 }
+
+/* ========================================
+   v2.1 UI画风升级优化
+   国风琉璃 + 鎏金发光 + 龙纹浮雕 + 呼吸光效
+   ======================================== */
+
+/* 顶部状态栏增强 - 琉璃玻璃 + 龙纹边框 + 呼吸光 */
+.top-bar {
+    background: linear-gradient(135deg,
+        rgba(6, 34, 58, 0.85) 0%,
+        rgba(10, 58, 92, 0.75) 50%,
+        rgba(6, 34, 58, 0.85) 100%);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 215, 0, 0.35);
+    box-shadow:
+        0 0 25px rgba(54, 224, 232, 0.15),
+        0 4px 20px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15),
+        inset 0 -1px 0 rgba(255, 215, 0, 0.1);
+    animation: topBarBreath 4s ease-in-out infinite;
+}
+
+@keyframes topBarBreath {
+    0%, 100% {
+        box-shadow:
+            0 0 20px rgba(54, 224, 232, 0.12),
+            0 4px 20px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.12),
+            inset 0 -1px 0 rgba(255, 215, 0, 0.08);
+    }
+    50% {
+        box-shadow:
+            0 0 35px rgba(54, 224, 232, 0.25),
+            0 4px 20px rgba(0, 0, 0, 0.4),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2),
+            inset 0 -1px 0 rgba(255, 215, 0, 0.15);
+    }
+}
+
+/* 玩家头像增强 - 龙纹光环 */
+.player-avatar {
+    background: linear-gradient(135deg, #0A3A5C 0%, #06223A 100%);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+}
+
+.player-avatar::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FFD700, #36E0E8, #FFD700);
+    z-index: -1;
+    animation: avatarRingRotate 6s linear infinite;
+}
+
+@keyframes avatarRingRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 金币显示增强 - 鎏金发光 + 滚动数字 */
+.coin-display {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.2) 0%,
+        rgba(255, 215, 0, 0.08) 50%,
+        rgba(255, 215, 0, 0.15) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    box-shadow:
+        0 0 20px rgba(255, 215, 0, 0.25),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2),
+        inset 0 -1px 0 rgba(255, 215, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.coin-display::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.15),
+        transparent);
+    animation: coinShine 3s ease-in-out infinite;
+}
+
+@keyframes coinShine {
+    0% { left: -100%; }
+    50%, 100% { left: 100%; }
+}
+
+.coin-value {
+    font-size: 20px;
+    font-weight: 900;
+    background: linear-gradient(180deg, #FFF8DC 0%, #FFD700 40%, #B8860B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.6));
+    letter-spacing: 1px;
+}
+
+/* 底部操作栏增强 */
+.bottom-bar {
+    background: linear-gradient(180deg,
+        rgba(6, 34, 58, 0.8) 0%,
+        rgba(3, 16, 31, 0.9) 100%);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    box-shadow:
+        0 -4px 25px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(54, 224, 232, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* 功能按钮增强 - 龙纹浮雕 + hover金粉 */
+.bottom-bar-right button,
+.bottom-bar-center button {
+    position: relative;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: visible;
+}
+
+.bottom-bar-right button:hover,
+.bottom-bar-center button:hover {
+    transform: translateY(-3px) scale(1.08);
+    filter: brightness(1.3);
+}
+
+.bottom-bar-right button:active,
+.bottom-bar-center button:active {
+    transform: translateY(0) scale(0.95);
+}
+
+/* 按钮hover金粉粒子效果 */
+.bottom-bar-right button::after,
+.bottom-bar-center button::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255, 215, 0, 0.4) 0%, transparent 70%);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s, opacity 0.3s;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.bottom-bar-right button:hover::after,
+.bottom-bar-center button:hover::after {
+    width: 60px;
+    height: 60px;
+    opacity: 1;
+}
+
+/* 弹窗增强 - 国风云纹底 + 鎏金边框 */
+.popup-panel {
+    background: linear-gradient(135deg,
+        rgba(6, 34, 58, 0.95) 0%,
+        rgba(10, 58, 92, 0.92) 50%,
+        rgba(6, 34, 58, 0.95) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    box-shadow:
+        0 0 40px rgba(54, 224, 232, 0.2),
+        0 20px 60px rgba(0, 0, 0, 0.6),
+        inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    position: relative;
+}
+
+.popup-panel::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        #FFD700 0%,
+        #36E0E8 25%,
+        #FFD700 50%,
+        #36E0E8 75%,
+        #FFD700 100%);
+    z-index: -1;
+    opacity: 0.6;
+    animation: popupBorderGlow 3s ease-in-out infinite;
+}
+
+@keyframes popupBorderGlow {
+    0%, 100% { opacity: 0.4; filter: brightness(1); }
+    50% { opacity: 0.8; filter: brightness(1.3); }
+}
+
+/* 弹窗标题增强 */
+.popup-title {
+    font-size: 22px;
+    font-weight: 900;
+    background: linear-gradient(180deg, #FFF8DC 0%, #FFD700 50%, #B8860B 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+    letter-spacing: 4px;
+}
+
+/* 弹窗关闭按钮增强 */
+.popup-close-btn {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.3), rgba(255, 107, 53, 0.1));
+    border: 1px solid rgba(255, 107, 53, 0.5);
+    color: #FF6B35;
+    transition: all 0.2s;
+}
+
+.popup-close-btn:hover {
+    background: linear-gradient(135deg, rgba(255, 107, 53, 0.5), rgba(255, 107, 53, 0.3));
+    transform: rotate(90deg) scale(1.1);
+    box-shadow: 0 0 15px rgba(255, 107, 53, 0.5);
+}
+
+/* 右侧道具栏增强 */
+.side-bar, [class*="side-bar"], [class*="item-bar"] {
+    background: linear-gradient(180deg,
+        rgba(6, 34, 58, 0.8) 0%,
+        rgba(3, 16, 31, 0.85) 100%);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 215, 0, 0.25);
+    box-shadow:
+        -4px 0 20px rgba(0, 0, 0, 0.3),
+        0 0 15px rgba(54, 224, 232, 0.1);
+}
+
+/* 道具按钮增强 */
+.side-bar button, [class*="side-bar"] button {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.side-bar button:hover, [class*="side-bar"] button:hover {
+    transform: scale(1.15);
+    filter: brightness(1.4) drop-shadow(0 0 10px rgba(255, 215, 0, 0.6));
+}
+
+/* 倍率按钮增强 */
+.multiplier-btn, [class*="multiplier"] button {
+    background: linear-gradient(135deg,
+        rgba(54, 224, 232, 0.2) 0%,
+        rgba(54, 224, 232, 0.05) 100%);
+    border: 1px solid rgba(54, 224, 232, 0.4);
+    color: #7DF9FF;
+    font-weight: bold;
+    transition: all 0.15s;
+}
+
+.multiplier-btn:hover, [class*="multiplier"] button:hover {
+    background: linear-gradient(135deg,
+        rgba(54, 224, 232, 0.4) 0%,
+        rgba(54, 224, 232, 0.15) 100%);
+    box-shadow: 0 0 15px rgba(54, 224, 232, 0.5);
+    transform: scale(1.1);
+}
+
+.multiplier-btn:active, [class*="multiplier"] button:active {
+    transform: scale(0.9);
+}
+
+/* 自动开火按钮增强 */
+.auto-fire-btn, [class*="auto"] {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.25) 0%,
+        rgba(255, 215, 0, 0.08) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    color: #FFD700;
+    transition: all 0.2s;
+}
+
+.auto-fire-btn.active, [class*="auto"].active {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.5) 0%,
+        rgba(255, 215, 0, 0.2) 100%);
+    box-shadow:
+        0 0 20px rgba(255, 215, 0, 0.5),
+        inset 0 0 10px rgba(255, 215, 0, 0.2);
+    animation: autoFirePulse 1.5s ease-in-out infinite;
+}
+
+@keyframes autoFirePulse {
+    0%, 100% { box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+    50% { box-shadow: 0 0 30px rgba(255, 215, 0, 0.7); }
+}
+
+/* 全局光影呼吸遮罩 */
+#game-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(ellipse at center,
+        transparent 40%,
+        rgba(3, 16, 31, 0.3) 100%);
+    pointer-events: none;
+    z-index: 50;
+    animation: globalVignette 6s ease-in-out infinite;
+}
+
+@keyframes globalVignette {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 0.9; }
+}
+
+/* 关卡提示增强 */
+.level-announce, [class*="level-announce"], [class*="level-toast"] {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.3) 0%,
+        rgba(54, 224, 232, 0.2) 100%);
+    border: 2px solid rgba(255, 215, 0, 0.6);
+    box-shadow:
+        0 0 40px rgba(255, 215, 0, 0.4),
+        0 0 80px rgba(54, 224, 232, 0.2);
+    animation: levelAnnounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes levelAnnounceIn {
+    0% { transform: scale(0) rotate(-10deg); opacity: 0; }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+/* 商城礼包卡片增强 */
+.shop-item, [class*="shop-item"], [class*="recharge-item"] {
+    background: linear-gradient(135deg,
+        rgba(10, 58, 92, 0.8) 0%,
+        rgba(6, 34, 58, 0.9) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.shop-item:hover, [class*="shop-item"]:hover, [class*="recharge-item"]:hover {
+    transform: translateY(-5px) scale(1.02);
+    border-color: rgba(255, 215, 0, 0.7);
+    box-shadow:
+        0 10px 30px rgba(0, 0, 0, 0.4),
+        0 0 25px rgba(255, 215, 0, 0.3);
+}
+
+.shop-item::before, [class*="shop-item"]::before, [class*="recharge-item"]::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.1),
+        transparent);
+    transition: left 0.5s;
+}
+
+.shop-item:hover::before, [class*="shop-item"]:hover::before, [class*="recharge-item"]:hover::before {
+    left: 100%;
+}
+
+/* 热门/超值标签增强 */
+.tag-hot, [class*="tag-hot"], [class*="hot"] {
+    background: linear-gradient(135deg, #FF6B35, #FFD700);
+    color: #fff;
+    font-weight: bold;
+    box-shadow: 0 0 10px rgba(255, 107, 53, 0.6);
+    animation: hotTagPulse 1s ease-in-out infinite;
+}
+
+@keyframes hotTagPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+/* 滚动条美化 */
+.popup-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.popup-content::-webkit-scrollbar-track {
+    background: rgba(6, 34, 58, 0.5);
+    border-radius: 3px;
+}
+
+.popup-content::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #FFD700, #36E0E8);
+    border-radius: 3px;
+}
+
+/* 能量条增强 */
+.energy-bar-fill {
+    background: linear-gradient(90deg,
+        #36E0E8 0%,
+        #7DF9FF 30%,
+        #FFD700 60%,
+        #36E0E8 100%);
+    background-size: 200% 100%;
+    animation: energyFlow 2s linear infinite, energyGlow 2s ease-in-out infinite;
+}
+
+@keyframes energyFlow {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* VIP标签增强 */
+.player-vip {
+    background: linear-gradient(90deg,
+        rgba(255, 215, 0, 0.3) 0%,
+        rgba(255, 107, 53, 0.2) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.5);
+    color: #FFD700;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 215, 0, 0.5);
+}
+
+/* 钻石显示增强 */
+.diamond-display {
+    background: linear-gradient(135deg,
+        rgba(54, 224, 232, 0.15) 0%,
+        rgba(54, 224, 232, 0.05) 100%);
+    border: 1px solid rgba(54, 224, 232, 0.3);
+    border-radius: 12px;
+    padding: 4px 10px;
+}
+
+/* 关卡显示增强 */
+.level-display {
+    background: linear-gradient(135deg,
+        rgba(255, 215, 0, 0.15) 0%,
+        rgba(255, 215, 0, 0.05) 100%);
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    border-radius: 12px;
+    padding: 4px 10px;
+}
+
+/* 按钮通用点击反馈 */
+button {
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+}
+
+button:active {
+    transform: scale(0.95);
+}
+
+/* 游戏容器背景 - AI生成海底世界静态背景 */
+#game-container {
+    background-image: url('../assets/backgrounds/ocean-palace-bg.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* 背景Canvas半透明，让AI背景图透出 */
+#canvas-bg {
+    opacity: 0.35 !important;
+}
