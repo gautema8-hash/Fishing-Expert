@@ -365,45 +365,7 @@ html, body {
     transform: scale(0.9);
 }
 
-/* 能量条 */
-.energy-bar-container {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 4px;
-    justify-content: center;
-}
-
-.energy-bar-bg {
-    width: 120px;
-    height: 8px;
-    border-radius: 4px;
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(54, 224, 232, 0.3);
-    overflow: hidden;
-}
-
-.energy-bar-fill {
-    height: 100%;
-    width: 30%;
-    border-radius: 4px;
-    background: linear-gradient(90deg, #36E0E8, #7DF9FF, #36E0E8);
-    box-shadow: 0 0 8px rgba(54, 224, 232, 0.6);
-    transition: width 0.3s ease;
-    animation: energyGlow 2s ease-in-out infinite;
-}
-
-@keyframes energyGlow {
-    0%, 100% { box-shadow: 0 0 6px rgba(54, 224, 232, 0.4); }
-    50% { box-shadow: 0 0 12px rgba(54, 224, 232, 0.8); }
-}
-
-.energy-bar-text {
-    font-size: 10px;
-    color: var(--accent);
-    font-weight: bold;
-    min-width: 45px;
-}
+/* 能量条样式已移除（能量系统仍在后台运行，仅不再渲染能量条 UI） */
 
 .top-bar-right {
     display: flex;
@@ -700,6 +662,38 @@ html, body {
     color: var(--accent);
     font-weight: bold;
     margin-top: 1px;
+}
+
+/* ========================================
+   炮台旁技能栏
+   位于底部中央炮台附近（炮台上方），横向排列
+   ======================================== */
+.cannon-skills {
+    position: absolute;
+    left: 50%;
+    bottom: calc(88px + var(--safe-bottom));
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 98;
+    pointer-events: none; /* 容器不挡弹，按钮自身可点 */
+}
+
+.cannon-skills .skill-btn {
+    width: 48px;
+    height: 48px;
+    pointer-events: auto;
+}
+
+.cannon-skills .skill-icon {
+    font-size: 22px;
+}
+
+.cannon-skills .skill-cost {
+    font-size: 9px;
 }
 
 /* ========================================
@@ -4617,21 +4611,7 @@ html, body {
     border-radius: 3px;
 }
 
-/* 能量条增强 */
-.energy-bar-fill {
-    background: linear-gradient(90deg,
-        #36E0E8 0%,
-        #7DF9FF 30%,
-        #FFD700 60%,
-        #36E0E8 100%);
-    background-size: 200% 100%;
-    animation: energyFlow 2s linear infinite, energyGlow 2s ease-in-out infinite;
-}
-
-@keyframes energyFlow {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
+/* 能量条增强样式已移除（能量条 UI 已下线） */
 
 /* VIP标签增强 */
 .player-vip {

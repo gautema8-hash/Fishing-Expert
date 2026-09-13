@@ -48,7 +48,16 @@ export const GameConfig = {
             dragon: { name: '龙纹炮', unlock: 'default', color: '#36E0E8' },
             glass:  { name: '琉璃炮', unlock: 'vip3',    color: '#7DF9FF' },
             gold:   { name: '鎏金炮', unlock: 'vip5',    color: '#FFD700' }
-        }
+        },
+        // ===== 5级皮肤系统（按倍率自动切换）=====
+        // min/max 为半开区间 [min, max)，越高级 glowIntensity 越强
+        levelSkins: [
+            { min: 100,   max: 500,    name: '普通炮', image: 'assets/cannon/cannon-lv1.png', color: '#CD7F32', glowIntensity: 0.3 },
+            { min: 500,   max: 2000,   name: '精良炮', image: 'assets/cannon/cannon-lv2.png', color: '#C0C0C0', glowIntensity: 0.5 },
+            { min: 2000,  max: 5000,   name: '史诗炮', image: 'assets/cannon/cannon-lv3.png', color: '#FFD700', glowIntensity: 0.7 },
+            { min: 5000,  max: 10000,  name: '传说炮', image: 'assets/cannon/cannon-lv4.png', color: '#B76BE8', glowIntensity: 0.9 },
+            { min: 10000, max: 999999, name: '神级炮', image: 'assets/cannon/cannon-lv5.png', color: '#FF6BFF', glowIntensity: 1.2 }
+        ]
     },
 
     // ===== 炮弹 =====
@@ -61,7 +70,23 @@ export const GameConfig = {
         normalColor: '#36E0E8',         // 普通炮弹颜色
         maxBullets: 50,                 // 同屏最大炮弹数
         maxBounces: 3,                  // 最大边界反弹次数
-        bounceSpeedDecay: 0.9           // 反弹后速度衰减倍率
+        bounceSpeedDecay: 0.9,          // 反弹后速度衰减倍率
+        // 炮弹倍率分级（level = 倍率，单位 100）
+        // min/max 为半开区间 [min, max)
+        bulletSizeBase: 6,              // 炮弹基础半径（像素）
+        bulletSizePerLevel: 1 / 200,    // 每倍率点增加的半径（size = base + level/200）
+        bulletSizeMax: 80,              // 炮弹半径上限
+        tiers: [
+            { min: 100,  max: 500,    name: '普通', color: '#36E0E8', trailLength: 2, particleSize: 0.6 },
+            { min: 500,  max: 2000,   name: '强化', color: '#FFD700', trailLength: 3, particleSize: 0.8 },
+            { min: 2000, max: 5000,   name: '烈焰', color: '#FF6B35', trailLength: 4, particleSize: 1.0 },
+            { min: 5000, max: 10000,  name: '传说', color: '#B76BE8', trailLength: 5, particleSize: 1.2 },
+            { min: 10000, max: 999999,name: '神级', color: 'rainbow', trailLength: 6, particleSize: 1.5 }
+        ],
+        // 暴击率随倍率提升：基础 5% + (level/10000)*2%，总暴击率上限 15%
+        critBonusPer10k: 0.02,          // 每 10000 倍率点额外暴击率
+        critBonusMax: 0.10,             // 倍率带来的额外暴击率上限（叠加后总上限 15%）
+        critRateCap: 0.15               // 总暴击率硬上限
     },
 
     // ===== 粒子系统 =====

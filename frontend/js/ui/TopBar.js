@@ -42,12 +42,6 @@ export class TopBar {
                     <span class="coin-value">1.00亿</span>
                     <button class="coin-add-btn" id="coin-add-btn">+</button>
                 </div>
-                <div class="energy-bar-container">
-                    <div class="energy-bar-bg">
-                        <div class="energy-bar-fill" id="energy-bar-fill"></div>
-                    </div>
-                    <span class="energy-bar-text" id="energy-bar-text">30/100</span>
-                </div>
             </div>
             <div class="top-bar-right">
                 <div class="diamond-display">
@@ -60,8 +54,6 @@ export class TopBar {
 
         this._coinDisplay = this.element.querySelector('.coin-value');
         this._diamondDisplay = this.element.querySelector('.diamond-value');
-        this._energyFill = this.element.querySelector('#energy-bar-fill');
-        this._energyText = this.element.querySelector('#energy-bar-text');
 
         // 金币加号按钮
         this.element.querySelector('#coin-add-btn').addEventListener('click', () => {
@@ -114,14 +106,12 @@ export class TopBar {
         }
     }
 
+    /**
+     * 能量显示已移除（能量系统仍在后台运行，仅不再渲染能量条）。
+     * 保留空方法以兼容旧调用。
+     */
     updateEnergy(energy, maxEnergy) {
-        if (this._energyFill) {
-            const percent = Math.min(100, (energy / maxEnergy) * 100);
-            this._energyFill.style.width = `${percent}%`;
-        }
-        if (this._energyText) {
-            this._energyText.textContent = `${Math.floor(energy)}/${maxEnergy}`;
-        }
+        // no-op: 能量条 UI 已下线
     }
 
     updatePlayerInfo(name, vipLevel) {
@@ -206,9 +196,6 @@ export class BottomBar {
                 <button class="action-btn" id="rank-btn" title="排行榜">
                     <span>🏆</span>
                 </button>
-                <button class="action-btn" id="setting-btn" title="设置">
-                    <span>⚙️</span>
-                </button>
             </div>
         `;
         this.container.appendChild(this.element);
@@ -256,9 +243,6 @@ export class BottomBar {
         this.element.querySelector('#rank-btn').addEventListener('click', () => {
             this.eventBus.emit('ui:open_rank');
         });
-        this.element.querySelector('#setting-btn').addEventListener('click', () => {
-            this.eventBus.emit('ui:open_setting');
-        });
     }
 
     updateCannonLevel(level) {
@@ -294,10 +278,12 @@ export class Sidebar {
         this.container = container;
         this.eventBus = eventBus;
         this.element = null;
+        this.skillsElement = null;
         this._create();
     }
 
     _create() {
+        // 右侧道具栏：道具 + 分割线 + 设置
         this.element = document.createElement('div');
         this.element.className = 'sidebar glass-panel';
         this.element.innerHTML = `
@@ -318,6 +304,16 @@ export class Sidebar {
                 <span class="item-icon">📺</span>
             </button>
             <div class="sidebar-divider"></div>
+            <button class="item-btn" id="setting-btn" title="设置">
+                <span class="item-icon">⚙️</span>
+            </button>
+        `;
+        this.container.appendChild(this.element);
+
+        // 炮台旁技能栏（冰冻 / 闪电链 / 金币雨）
+        this.skillsElement = document.createElement('div');
+        this.skillsElement.className = 'cannon-skills';
+        this.skillsElement.innerHTML = `
             <button class="skill-btn" id="skill-freeze" title="全屏冰冻 (50能量)">
                 <span class="skill-icon">❄️</span>
                 <span class="skill-cost">50</span>
@@ -331,7 +327,7 @@ export class Sidebar {
                 <span class="skill-cost">60</span>
             </button>
         `;
-        this.container.appendChild(this.element);
+        this.container.appendChild(this.skillsElement);
 
         this.element.querySelector('#item-lock').addEventListener('click', () => {
             this.eventBus.emit('ui:use_item', 'lock');
@@ -346,14 +342,19 @@ export class Sidebar {
             this.eventBus.emit('ui:watch_ad', 'coins');
         });
 
-        // 技能按钮
-        this.element.querySelector('#skill-freeze').addEventListener('click', () => {
+        // 设置按钮（从底部操作栏移入侧边栏）
+        this.element.querySelector('#setting-btn').addEventListener('click', () => {
+            this.eventBus.emit('ui:open_setting');
+        });
+
+        // 技能按钮（位于炮台旁）
+        this.skillsElement.querySelector('#skill-freeze').addEventListener('click', () => {
             this.eventBus.emit('ui:use_skill', 'freeze');
         });
-        this.element.querySelector('#skill-lightning').addEventListener('click', () => {
+        this.skillsElement.querySelector('#skill-lightning').addEventListener('click', () => {
             this.eventBus.emit('ui:use_skill', 'lightning');
         });
-        this.element.querySelector('#skill-coin_rain').addEventListener('click', () => {
+        this.skillsElement.querySelector('#skill-coin_rain').addEventListener('click', () => {
             this.eventBus.emit('ui:use_skill', 'coin_rain');
         });
     }
@@ -378,6 +379,9 @@ export class Sidebar {
     destroy() {
         if (this.element && this.element.parentNode) {
             this.element.parentNode.removeChild(this.element);
+        }
+        if (this.skillsElement && this.skillsElement.parentNode) {
+            this.skillsElement.parentNode.removeChild(this.skillsElement);
         }
     }
 }

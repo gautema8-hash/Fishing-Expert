@@ -125,7 +125,9 @@ export class WaterRippleManager {
      * 炮弹入水波纹
      */
     bulletSplash(x, y, bulletLevel = 1) {
-        const intensity = 1 + bulletLevel * 0.1;
+        // 倍率越高波纹越大，但线性放大会让高倍率(15000)产生巨型波纹且几分钟不消散，
+        // 因此用对数级增长并封顶 intensity ≤ 4
+        const intensity = Math.min(4, 1 + bulletLevel / 2000);
         this.create(x, y, {
             maxRadius: GameConfig.waterRipple.baseMaxRadius * intensity,
             ringCount: GameConfig.waterRipple.baseRingCount,

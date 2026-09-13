@@ -33,6 +33,47 @@ export class Bullet {
         this._bounceCount = 0;          // 已反弹次数
         this._bouncePulse = 0;          // 反弹缩放脉冲（视觉效果）
         this._justBounced = false;      // 本帧是否刚反弹（供外部生成水花粒子）
+        // 倍率分级
+        this.tier = null;               // 当前 tier 配置对象（含 color/name/trailLength/particleSize）
+        this.tierIndex = 0;             // 0..4（对应 1..5 级）
+        this._trailInterval = GameConfig.bullet.trailParticleInterval;
+    }
+
+    /**
+     * 根据倍率(level)解析炮弹分级
+     * 返回 { index(0..4), tier(1..5), name, color, trailLength, particleSize }
+     */
+    _resolveTier(level) {
+        const tiers = GameConfig.bullet.tiers;
+        for (let i = 0; i < tiers.length; i++) {
+            if (level >= tiers[i].min && level < tiers[i].max) {
+                return { ...tiers[i], index: i, tier: i + 1 };
+            }
+        }
+        const last = tiers[tiers.length - 1];
+        return { ...last, index: tiers.length - 1, tier: tiers.length };
+    }
+
+    /**
+     * 神级炮弹的动态彩虹色（hsl 字符串）
+     */
+    _rainbowColor() {
+        const hue = (Date.now() * 0.08) % 360;
+        return `hsl(${hue.toFixed(0)}, 100%, 65%)`;
+    }
+
+    /**
+     * 颜色叠加透明度（兼容 hex 与 hsl 字符串）
+     */
+    _rgba(color, alpha) {
+        if (typeof color === 'string' && color[0] === '#') {
+            return Utils.rgba(color, alpha);
+        }
+        // hsl(...) -> hsla(..., alpha)
+        if (typeof color === 'string' && color.indexOf('hsl(') === 0) {
+            return color.replace('hsl(', 'hsla(').slice(0, -1) + `, ${alpha})`;
+        }
+        return color;
     }
 
     init(config) {
@@ -44,7 +85,16 @@ export class Bullet {
         this.isCrit = config.isCrit || false;
         this.isRage = config.isRage || false;
         this.skin = config.skin || 'dragon';
-        this.size = 6 + this.level * 0.5;
+        // 炮弹尺寸随倍率增大：size = base + level/200，上限 bulletSizeMax
+        const sizeBase = GameConfig.bullet.bulletSizeBase ?? 6;
+        const sizePerLevel = GameConfig.bullet.bulletSizePerLevel ?? (1 / 200);
+        const sizeMax = GameConfig.bullet.bulletSizeMax ?? 80;
+        this.size = Math.min(sizeMax, sizeBase + this.level * sizePerLevel);
+        // 解析分级
+        this.tier = this._resolveTier(this.level);
+        this.tierIndex = this.tier.index;
+        // 拖尾粒子间隔：tier>=4（传说及以上，index>=3）频率翻倍
+        this._trailInterval = GameConfig.bullet.trailParticleInterval * (this.tierIndex >= 3 ? 0.5 : 1);
         this.state = 'flying';
         this._active = true;
         this._life = 5;
@@ -91,11 +141,8 @@ export class Bullet {
         this.x += this.vx * dt;
         this.y += this.vy * dt;
 
-        // 拖尾粒子
+        // 拖尾粒子计时（实际生成在 getTrailParticle 中，到期后由其重置间隔）
         this._trailTimer -= dt;
-        if (this._trailTimer <= 0) {
-            this._trailTimer = GameConfig.bullet.trailParticleInterval;
-        }
 
         // 反弹脉冲衰减
         this._bouncePulse = Math.max(0, this._bouncePulse - dt * 5);
@@ -174,18 +221,25 @@ export class Bullet {
             ctx.scale(pulseScale, pulseScale);
         }
 
-        const color = this.isCrit ? GameConfig.bullet.critColor :
-                      this.isRage ? '#FF6B35' : GameConfig.bullet.normalColor;
+        // 主色：由 tier 决定；神级为动态彩虹
+        const tier = this.tier;
+        const isRainbow = tier.color === 'rainbow';
+        const mainColor = isRainbow ? this._rainbowColor() : tier.color;
 
         if (this.state === 'exploding') {
             // 爆炸效果
             const progress = this._explosionTimer / 0.3;
             ctx.globalCompositeOperation = 'lighter';
-            const explosionRadius = this.size * (1 + progress * 4);
+            // 爆炸半径随 tier 放大：tier3×1.5, tier4×2, tier5×3
+            let radiusMult = 1;
+            if (this.tierIndex >= 4) radiusMult = 3;
+            else if (this.tierIndex >= 3) radiusMult = 2;
+            else if (this.tierIndex >= 2) radiusMult = 1.5;
+            const explosionRadius = this.size * (1 + progress * 4) * radiusMult;
             const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, explosionRadius);
             gradient.addColorStop(0, `rgba(255, 255, 255, ${1 - progress})`);
-            gradient.addColorStop(0.3, `rgba(255, 215, 0, ${0.8 - progress * 0.8})`);
-            gradient.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            gradient.addColorStop(0.3, this._rgba(mainColor, 0.8 - progress * 0.8));
+            gradient.addColorStop(1, this._rgba(mainColor, 0));
             ctx.fillStyle = gradient;
             ctx.beginPath();
             ctx.arc(0, 0, explosionRadius, 0, Math.PI * 2);
@@ -197,27 +251,49 @@ export class Bullet {
         // 炮弹主体
         ctx.globalCompositeOperation = 'lighter';
 
-        // 外发光
-        const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.size * 2.5);
-        glowGradient.addColorStop(0, color);
-        glowGradient.addColorStop(0.5, Utils.rgba(color, 0.5));
-        glowGradient.addColorStop(1, Utils.rgba(color, 0));
+        // 外发光（半径随 tier 增大）
+        const glowR = this.size * (2.0 + this.tierIndex * 0.4);
+        const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowR);
+        glowGradient.addColorStop(0, mainColor);
+        glowGradient.addColorStop(0.5, this._rgba(mainColor, 0.5));
+        glowGradient.addColorStop(1, this._rgba(mainColor, 0));
         ctx.fillStyle = glowGradient;
         ctx.beginPath();
-        ctx.arc(0, 0, this.size * 2.5, 0, Math.PI * 2);
+        ctx.arc(0, 0, glowR, 0, Math.PI * 2);
         ctx.fill();
 
-        // 核心
-        const coreGradient = ctx.createRadialGradient(-this.size * 0.2, -this.size * 0.2, 0, 0, 0, this.size);
-        coreGradient.addColorStop(0, '#FFFFFF');
-        coreGradient.addColorStop(0.4, color);
-        coreGradient.addColorStop(1, Utils.rgba(color, 0.6));
+        // 核心（神级使用彩虹渐变）
+        let coreGradient;
+        if (isRainbow) {
+            coreGradient = ctx.createLinearGradient(-this.size, -this.size, this.size, this.size);
+            const t = (Date.now() * 0.002) % 1;
+            const c1 = `hsl(${(t * 360) % 360}, 100%, 70%)`;
+            const c2 = `hsl(${(t * 360 + 120) % 360}, 100%, 60%)`;
+            const c3 = `hsl(${(t * 360 + 240) % 360}, 100%, 55%)`;
+            coreGradient.addColorStop(0, '#FFFFFF');
+            coreGradient.addColorStop(0.4, c1);
+            coreGradient.addColorStop(0.7, c2);
+            coreGradient.addColorStop(1, c3);
+        } else {
+            coreGradient = ctx.createRadialGradient(-this.size * 0.2, -this.size * 0.2, 0, 0, 0, this.size);
+            coreGradient.addColorStop(0, '#FFFFFF');
+            coreGradient.addColorStop(0.4, mainColor);
+            coreGradient.addColorStop(1, this._rgba(mainColor, 0.6));
+        }
         ctx.fillStyle = coreGradient;
         ctx.beginPath();
         ctx.arc(0, 0, this.size, 0, Math.PI * 2);
         ctx.fill();
 
-        // 暴击炮弹：烈焰质感
+        // 狂暴：红色光晕叠加在 tier 色之上
+        if (this.isRage) {
+            ctx.fillStyle = 'rgba(255, 80, 40, 0.35)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.size * 1.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 暴击：环绕火球（保留原视觉）
         if (this.isCrit) {
             ctx.fillStyle = 'rgba(255, 107, 53, 0.6)';
             for (let i = 0; i < 3; i++) {
@@ -230,18 +306,19 @@ export class Bullet {
             }
         }
 
-        // 电光拖尾（在炮弹后方）
-        ctx.globalCompositeOperation = 'lighter';
-        const trailGradient = ctx.createLinearGradient(-this.size * 4, 0, 0, 0);
-        trailGradient.addColorStop(0, Utils.rgba(color, 0));
-        trailGradient.addColorStop(0.5, Utils.rgba(color, 0.4));
-        trailGradient.addColorStop(1, color);
+        // 拖尾（长度/宽度随 tier）
+        const trailLen = this.size * tier.trailLength;
+        const trailW = this.size * (0.35 + this.tierIndex * 0.08);
+        const trailGradient = ctx.createLinearGradient(-trailLen, 0, 0, 0);
+        trailGradient.addColorStop(0, this._rgba(mainColor, 0));
+        trailGradient.addColorStop(0.5, this._rgba(mainColor, 0.4));
+        trailGradient.addColorStop(1, mainColor);
         ctx.fillStyle = trailGradient;
         ctx.beginPath();
-        ctx.ellipse(-this.size * 2, 0, this.size * 2, this.size * 0.4, 0, 0, Math.PI * 2);
+        ctx.ellipse(-trailLen / 2, 0, trailLen / 2, trailW, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // 电火花
+        // 电火花（基础，所有 tier 都有）
         ctx.strokeStyle = '#FFFFFF';
         ctx.lineWidth = 1;
         for (let i = 0; i < 2; i++) {
@@ -254,17 +331,85 @@ export class Bullet {
             ctx.stroke();
         }
 
+        // tier>=2（强化及以上）：电光粒子（随机闪烁小电弧）
+        if (this.tierIndex >= 1) {
+            ctx.strokeStyle = 'rgba(255, 255, 200, 0.85)';
+            ctx.lineWidth = 1.2;
+            const arcs = this.tierIndex >= 3 ? 4 : 2;
+            for (let i = 0; i < arcs; i++) {
+                const ex = (Math.random() - 0.5) * this.size * 2;
+                const ey = (Math.random() - 0.5) * this.size * 2;
+                ctx.beginPath();
+                ctx.moveTo(ex, ey);
+                ctx.lineTo(ex + (Math.random() - 0.5) * this.size * 0.8, ey + (Math.random() - 0.5) * this.size * 0.8);
+                ctx.lineTo(ex + (Math.random() - 0.5) * this.size * 1.5, ey + (Math.random() - 0.5) * this.size * 1.5);
+                ctx.stroke();
+            }
+        }
+
+        // tier>=3（烈焰及以上）：火焰粒子（橙红随机光点）
+        if (this.tierIndex >= 2) {
+            const flameCount = this.tierIndex >= 4 ? 6 : 4;
+            for (let i = 0; i < flameCount; i++) {
+                const fx = (Math.random() - 0.5) * this.size * 2.5;
+                const fy = (Math.random() - 0.5) * this.size * 2.5;
+                const fr = this.size * (0.15 + Math.random() * 0.2);
+                ctx.fillStyle = `rgba(255, ${(120 + Math.random() * 80) | 0}, 40, ${0.5 + Math.random() * 0.4})`;
+                ctx.beginPath();
+                ctx.arc(fx, fy, fr, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // tier>=4（传说及以上）：环绕光效（双向旋转光环）
+        if (this.tierIndex >= 3) {
+            const ringAngle = Date.now() * 0.005;
+            const ringR = this.size * 1.8;
+            ctx.strokeStyle = this._rgba(mainColor, 0.6);
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, ringR, ringAngle, ringAngle + Math.PI * 1.4);
+            ctx.stroke();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.arc(0, 0, ringR * 1.25, -ringAngle * 1.3, -ringAngle * 1.3 + Math.PI * 1.2);
+            ctx.stroke();
+        }
+
+        // tier>=5（神级）：龙纹光效（多重彩虹光环）
+        if (this.tierIndex >= 4) {
+            const t = (Date.now() * 0.003) % 1;
+            const now = Date.now() * 0.001;
+            for (let r = 0; r < 3; r++) {
+                const ringR = this.size * (2.2 + r * 0.5);
+                const hue = ((t * 360 + r * 120) % 360).toFixed(0);
+                ctx.strokeStyle = `hsla(${hue}, 100%, 70%, 0.5)`;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(0, 0, ringR, now * (1 + r * 0.3), now * (1 + r * 0.3) + Math.PI * (1 + r * 0.3));
+                ctx.stroke();
+            }
+        }
+
         ctx.restore();
     }
 
     getTrailParticle() {
         if (this._trailTimer > 0) return null;
+        // 对象池复用时 reset() 会把 tier 置空，此时炮弹已不活跃，直接跳过
+        if (!this.tier) return null;
+        // 到期：生成一个拖尾粒子并重置间隔
+        this._trailTimer = this._trailInterval;
+        const color = this.tier.color === 'rainbow'
+            ? this._rainbowColor()
+            : this.tier.color;
         return {
             x: this.x - Math.cos(this.angle) * this.size,
             y: this.y - Math.sin(this.angle) * this.size,
-            color: this.isCrit ? '#FF6B35' : '#36E0E8',
-            size: this.size * 0.6,
-            type: 'trail'
+            color: color,
+            size: this.size * this.tier.particleSize,
+            type: this.tierIndex >= 2 ? 'fire' : 'trail'
         };
     }
 }

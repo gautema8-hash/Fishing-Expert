@@ -238,7 +238,7 @@ export const FishConfig = {
             bossWarningDuration: 3,       // BOSS 出场预警时长（秒）
             bossDisperseRadius: 500,      // BOSS 驱散小鱼半径
             imagePath: 'assets/fish/boss-golden-dragon.png',
-            imageScale: 3.0,                // BOSS完整龙身，放大贴图确保从头到尾完整显示
+            imageScale: 2.8,                // BOSS完整S形龙身，略缩小确保从头到尾完整可见
             spawnDirections: ['top', 'right'],
             speedRange: [35, 55]
         },

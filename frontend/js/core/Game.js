@@ -84,6 +84,14 @@ export class Game {
         // 性能
         this._quality = this.saveData.settings.quality || 'high';
         this._showFPS = this.saveData.settings.showFPS || false;
+
+        // 多人联机炮台系统（前端单机模拟：4个位置，空位显示"等待加入"，AI机器人随机加入/离开/发射）
+        this.multiplayer = {
+            cannons: [],        // 4个炮台位置 slot（下标0=玩家自己，引用 this.cannon）
+            botJoinTimer: 0,    // AI加入倒计时
+            _time: 0,           // 空位呼吸光效计时
+            namePool: ['龙宫高手', '捕鱼达人', '海王', '金龙战士', '深海猎人', '渔场主', '老船长', '小哪吒']
+        };
     }
 
     /**
@@ -114,6 +122,9 @@ export class Game {
         this.cannon = new Cannon(this.width / 2, this.height - 80);
         this.bulletManager = new BulletManager(this.eventBus);
         this.coinManager = new CoinManager(this.eventBus);
+
+        // 初始化多人炮台系统（4个位置：底=玩家，左/顶/右=空位，等待AI加入）
+        this._initMultiplayerCannons();
 
         // 系统
         this.economy = new EconomySystem(this.eventBus, this.saveData);
@@ -1251,6 +1262,265 @@ export class Game {
         });
     }
 
+    // ===== 多人联机炮台系统（前端单机模拟）=====
+
+    /**
+     * 初始化4个炮台位置
+     *  slot0 底部中央 = 玩家自己（复用 this.cannon）
+     *  slot1 左侧中央 = 朝右，空
+     *  slot2 顶部中央 = 朝下，空
+     *  slot3 右侧中央 = 朝左，空
+     */
+    _initMultiplayerCannons() {
+        const mp = this.multiplayer;
+        const W = this.width, H = this.height;
+        const AI_MARGIN = 0.35; // AI炮台角度限位（距正前方的弧度余量）
+
+        // slot0：玩家自己（底部中央，朝上半圆，保持现有默认角度限位）
+        mp.cannons[0] = {
+            cannon: this.cannon,
+            isPlayer: true,
+            occupied: true,
+            playerName: '',
+            coins: 0,
+            isAI: false,
+            baseAngle: -Math.PI / 2,
+            aiFireTimer: 0,
+            aiLeaveTimer: 0,
+            aiAimTimer: 0
+        };
+
+        // 构造一个空 slot 的辅助函数
+        const makeSlot = (x, y, baseAngle, angleLimit) => {
+            const c = new Cannon(x, y, { angleLimit, isPlayer: false, playerName: '' });
+            c.angle = baseAngle;
+            c.targetAngle = baseAngle;
+            return {
+                cannon: c,
+                isPlayer: false,
+                occupied: false,
+                playerName: '',
+                coins: 0,
+                isAI: false,
+                baseAngle,
+                aiFireTimer: 0,
+                aiLeaveTimer: 0,
+                aiAimTimer: 0
+            };
+        };
+
+        // slot1：左侧中央，朝右（瞄准角居中于0，向上下张开）
+        mp.cannons[1] = makeSlot(80, H / 2, 0, {
+            min: -Math.PI / 2 + AI_MARGIN,
+            max: Math.PI / 2 - AI_MARGIN
+        });
+
+        // slot2：顶部中央，朝下（瞄准角居中于 PI/2）
+        mp.cannons[2] = makeSlot(W / 2, 80, Math.PI / 2, {
+            min: AI_MARGIN,
+            max: Math.PI - AI_MARGIN
+        });
+
+        // slot3：右侧中央，朝左（瞄准角居中于 PI）
+        mp.cannons[3] = makeSlot(W - 80, H / 2, Math.PI, {
+            min: Math.PI - AI_MARGIN,
+            max: Math.PI + AI_MARGIN
+        });
+
+        // AI首次加入倒计时：20~40秒后开始检查
+        mp.botJoinTimer = 20 + Math.random() * 20;
+    }
+
+    /**
+     * 每帧更新多人炮台：AI加入/离开调度、AI瞄准、AI发射
+     */
+    _updateMultiplayer(dt) {
+        const mp = this.multiplayer;
+        mp._time += dt;
+
+        // AI加入调度：每20~40秒检查一次，有空位时50%概率让AI加入
+        mp.botJoinTimer -= dt;
+        if (mp.botJoinTimer <= 0) {
+            mp.botJoinTimer = 20 + Math.random() * 20;
+            const emptySlots = mp.cannons.filter(s => !s.occupied);
+            if (emptySlots.length > 0 && Math.random() < 0.5) {
+                this._aiJoin(emptySlots);
+            }
+        }
+
+        // 逐AI slot更新
+        for (let i = 1; i < mp.cannons.length; i++) {
+            const slot = mp.cannons[i];
+            if (!slot.occupied || !slot.isAI) continue;
+            const c = slot.cannon;
+
+            // 炮台自身动画（平滑旋转、流光、皮肤切换）
+            c.update(dt);
+
+            // 缓慢随机瞄准（在角度限位内随机选目标角）
+            slot.aiAimTimer -= dt;
+            if (slot.aiAimTimer <= 0) {
+                slot.aiAimTimer = 1.5 + Math.random() * 3;
+                const lim = c._angleLimit;
+                c.targetAngle = lim.min + Math.random() * (lim.max - lim.min);
+            }
+
+            // AI发射：每3~8秒一发，不消耗玩家金币
+            slot.aiFireTimer -= dt;
+            if (slot.aiFireTimer <= 0) {
+                if (c.canFire()) {
+                    slot.aiFireTimer = 3 + Math.random() * 5;
+                    const cfg = c.fire();
+                    if (cfg) {
+                        cfg.damage *= 0.6; // AI伤害略低，模拟其他玩家
+                        this.bulletManager.fire(cfg);
+                        this.waterRipple.bulletSplash(cfg.x, cfg.y, cfg.level);
+                    }
+                } else {
+                    slot.aiFireTimer = 0.4; // 冷却中，稍后重试
+                }
+            }
+
+            // AI离开：每30~60秒有30%概率离开
+            slot.aiLeaveTimer -= dt;
+            if (slot.aiLeaveTimer <= 0) {
+                if (Math.random() < 0.3) {
+                    this._aiLeave(slot);
+                } else {
+                    slot.aiLeaveTimer = 30 + Math.random() * 30;
+                }
+            }
+        }
+    }
+
+    /**
+     * AI加入一个空位
+     */
+    _aiJoin(emptySlots) {
+        const mp = this.multiplayer;
+        const slot = emptySlots[Math.floor(Math.random() * emptySlots.length)];
+        const name = mp.namePool[Math.floor(Math.random() * mp.namePool.length)];
+        // 随机倍率 100~5000（按100取整），皮肤等级随倍率自动切换
+        const level = Math.max(100, Math.min(5000, Math.round((100 + Math.random() * 4900) / 100) * 100));
+
+        const c = slot.cannon;
+        c.level = level;
+        c.playerName = name;
+        c.targetAngle = slot.baseAngle;
+
+        slot.occupied = true;
+        slot.isAI = true;
+        slot.playerName = name;
+        slot.coins = 10000 + Math.floor(Math.random() * 50000);
+        slot.aiFireTimer = 2 + Math.random() * 3;
+        slot.aiLeaveTimer = 30 + Math.random() * 30;
+        slot.aiAimTimer = Math.random() * 2;
+
+        if (this.uiManager) this.uiManager.showToast(`🎣 ${name} 加入了游戏`);
+    }
+
+    /**
+     * AI离开一个位置，回到"等待加入"
+     */
+    _aiLeave(slot) {
+        const name = slot.playerName;
+        slot.occupied = false;
+        slot.isAI = false;
+        slot.playerName = '';
+        slot.cannon.playerName = '';
+        if (this.uiManager) this.uiManager.showToast(`👋 ${name} 离开了游戏`);
+    }
+
+    /**
+     * 渲染多人炮台（空位 + 已占用AI炮台）
+     */
+    _renderMultiplayer(uiCtx) {
+        const mp = this.multiplayer;
+        const t = mp._time;
+        for (let i = 1; i < mp.cannons.length; i++) {
+            const slot = mp.cannons[i];
+            if (slot.occupied) {
+                slot.cannon.render(uiCtx);
+                this._renderSlotCoins(uiCtx, slot);
+            } else {
+                this._renderEmptySlot(uiCtx, slot, t);
+            }
+        }
+    }
+
+    /**
+     * 空位"等待加入"渲染：青色呼吸光晕 + 灰色圆形炮台轮廓 + 白色"+" + "等待加入"文字
+     */
+    _renderEmptySlot(ctx, slot, time) {
+        const x = slot.cannon.x;
+        const y = slot.cannon.y;
+        const pulse = (Math.sin(time * 2) + 1) / 2; // 0..1
+
+        ctx.save();
+
+        // 青色呼吸光晕（lighter叠加，轻量）
+        ctx.globalCompositeOperation = 'lighter';
+        const haloR = 45 + pulse * 15;
+        const halo = ctx.createRadialGradient(x, y, 0, x, y, haloR);
+        halo.addColorStop(0, `rgba(90, 220, 235, ${0.18 + pulse * 0.15})`);
+        halo.addColorStop(1, 'rgba(90, 220, 235, 0)');
+        ctx.fillStyle = halo;
+        ctx.beginPath();
+        ctx.arc(x, y, haloR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+
+        // 灰色圆形炮台轮廓（半透明）
+        ctx.globalAlpha = 0.35;
+        ctx.fillStyle = 'rgba(130, 150, 170, 0.25)';
+        ctx.beginPath();
+        ctx.arc(x, y, 40, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#C2CEDD';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        // 白色"+"图标
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 3;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(x - 12, y);
+        ctx.lineTo(x + 12, y);
+        ctx.moveTo(x, y - 12);
+        ctx.lineTo(x, y + 12);
+        ctx.stroke();
+
+        // "等待加入"文字
+        ctx.font = '12px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.fillText('等待加入', x, y + 50);
+
+        ctx.restore();
+    }
+
+    /**
+     * AI炮台下方金币数（金色，带深色描边）
+     */
+    _renderSlotCoins(ctx, slot) {
+        const x = slot.cannon.x;
+        const y = slot.cannon.y + 72; // 玩家名画在 y+50，金币在其下
+        ctx.save();
+        ctx.font = 'bold 12px "Microsoft YaHei", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = 'rgba(0, 20, 40, 0.9)';
+        const text = `🪙 ${Utils.formatCoin(slot.coins)}`;
+        ctx.strokeText(text, x, y);
+        ctx.fillStyle = '#FFD700';
+        ctx.fillText(text, x, y);
+        ctx.restore();
+    }
+
     /**
      * 发射炮弹
      */
@@ -1278,8 +1548,17 @@ export class Game {
             return;
         }
 
-        // 暴击判定（基础+VIP+升级+宠物加成）
-        const critRate = GameConfig.cannon.critBaseRate + this.vipSystem.critBonus / 100 + this.upgradeSystem.critRateBonus + this.petSystem.getCritBonus();
+        // 暴击判定（基础+VIP+升级+宠物加成 + 倍率加成）
+        // 倍率加成：(level/10000)*2%，加成上限 10%，总暴击率硬上限 15%
+        const bulletCfg = GameConfig.bullet;
+        const levelCritBonus = Math.min(
+            bulletCfg.critBonusMax ?? 0.10,
+            (this.cannon.level / 10000) * (bulletCfg.critBonusPer10k ?? 0.02)
+        );
+        let critRate = GameConfig.cannon.critBaseRate + this.vipSystem.critBonus / 100
+            + this.upgradeSystem.critRateBonus + this.petSystem.getCritBonus() + levelCritBonus;
+        const critRateCap = bulletCfg.critRateCap ?? 0.15;
+        if (critRate > critRateCap) critRate = critRateCap;
         const isCrit = Math.random() < critRate;
 
         // 锁定目标
@@ -1394,6 +1673,9 @@ export class Game {
         // 炮台
         this.cannon.update(dt);
 
+        // 多人炮台（AI加入/离开/瞄准/发射，AI炮弹走同一套bulletManager与碰撞检测）
+        this._updateMultiplayer(dt);
+
         // 宠物跟随
         this.petSystem.update(dt, this.cannon.x, this.cannon.y);
 
@@ -1484,7 +1766,7 @@ export class Game {
 
         // 技能
         this.skillSystem.update(dt);
-        this.topBar.updateEnergy(this.skillSystem.energy, this.skillSystem.maxEnergy);
+        // 能量条 UI 已下线，能量系统仍在后台运行（不再调用 topBar.updateEnergy）
 
         // 冰冻效果：鱼群停止移动
         if (this.skillSystem.isFreezeActive) {
@@ -1721,6 +2003,8 @@ export class Game {
         const uiCtx = this.renderer.getCtx('ui');
         if (uiCtx) {
             uiCtx.clearRect(0, 0, this.renderer.width, this.renderer.height);
+            // 多人炮台：空位"等待加入" + AI炮台（先画，让玩家炮台在最顶层）
+            this._renderMultiplayer(uiCtx);
             this.cannon.render(uiCtx);
         }
 
@@ -1860,6 +2144,15 @@ export class Game {
         this.volumetricFog.resize(this.width, this.height);
         this.cannon.x = this.width / 2;
         this.cannon.y = this.height - 80;
+        // 同步多人炮台位置（左/顶/右）
+        if (this.multiplayer && this.multiplayer.cannons.length >= 4) {
+            this.multiplayer.cannons[1].cannon.x = 80;
+            this.multiplayer.cannons[1].cannon.y = this.height / 2;
+            this.multiplayer.cannons[2].cannon.x = this.width / 2;
+            this.multiplayer.cannons[2].cannon.y = 80;
+            this.multiplayer.cannons[3].cannon.x = this.width - 80;
+            this.multiplayer.cannons[3].cannon.y = this.height / 2;
+        }
         this.coinManager.setTarget(this.width * 0.5, 50);
     }
 

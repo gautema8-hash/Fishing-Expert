@@ -20,6 +20,9 @@ export class BossDragonKing extends Fish {
         this._isTelegraphing = false;
         this._telegraphTimer = 0;
         this._chargeDirection = 0;
+        this._sparkles = [];          // 龙鳞闪光粒子池（同屏上限15）
+        this._dirTimer = 15;          // 漫游方向随机调整倒计时
+        this._dirBias = 0;            // 临时方向偏置（缓慢衰减）
     }
 
     reset() {
@@ -34,6 +37,9 @@ export class BossDragonKing extends Fish {
         this._isTelegraphing = false;
         this._telegraphTimer = 0;
         this._chargeDirection = 0;
+        this._sparkles = [];
+        this._dirTimer = 15;
+        this._dirBias = 0;
     }
 
     init(x, y, direction = 1, hpMultiplier = 1, scoreMultiplier = 1, eventBus = null) {
@@ -124,13 +130,22 @@ export class BossDragonKing extends Fish {
             this.speed = this.baseSpeed;
         }
 
-        // BOSS 游动路径：缓慢横向巡游 + 上下浮动
-        this.targetAngle = Math.sin(this._pathTime * 0.3) * 0.3 + (this.x > gameWidth / 2 ? Math.PI : 0);
+        // 漫游方向偶发大调整：每 15-20 秒注入一次临时偏置，随后缓慢衰减
+        this._dirTimer -= dt;
+        if (this._dirTimer <= 0) {
+            this._dirTimer = Utils.random(15, 20);
+            this._dirBias = Utils.random(-0.4, 0.4);
+        }
+        this._dirBias *= Math.max(0, 1 - 0.5 * dt);
+
+        // BOSS 游动路径：更自然的 S 形巡游（横向摆角更平缓 + 垂直波浪更大）
+        const baseAngle = (this.x > gameWidth / 2) ? Math.PI : 0;
+        this.targetAngle = Math.sin(this._pathTime * 0.25) * 0.25 + baseAngle + this._dirBias;
         this.angle = Utils.lerpAngle(this.angle, this.targetAngle, 0.5 * dt);
 
-        // 移动
+        // 移动：垂直方向波浪幅度加大，模拟水中蜿蜒升降
         this.x += Math.cos(this.angle) * this.speed * dt;
-        this.y += Math.sin(this.angle) * this.speed * dt + Math.sin(this._pathTime * 0.8) * 20 * dt;
+        this.y += Math.sin(this.angle) * this.speed * dt + Math.sin(this._pathTime * 0.6) * 30 * dt;
 
         // 边界（允许 BOSS 部分身体在屏幕外，营造巨型压迫感）
         const halfBoss = this.size * 1.5; // BOSS半宽，允许大部分身体出屏
@@ -158,7 +173,9 @@ export class BossDragonKing extends Fish {
 
         ctx.save();
         ctx.globalAlpha = this.state === 'dying' ? Math.max(0, 1 - this._deathTimer) : 1;
-        ctx.translate(this.x, this.y);
+        // 整体缓慢上下浮动，模拟水中悬浮（与游进速度解耦）
+        const bobY = Math.sin(this._time * 0.8) * 15;
+        ctx.translate(this.x, this.y + bobY);
         ctx.rotate(this.angle);
 
         // ===== 图片渲染路径：AI金龙图片就绪时优先使用（超逼真商业级）=====
@@ -281,16 +298,20 @@ export class BossDragonKing extends Fish {
         const img = this._image;
         if (!img) return;
 
-        // 轻微游动摆动（龙身蜿蜒感）
-        const sway = Math.sin(this._time * 2) * 0.04;
-        ctx.rotate(sway);
+        const t = this._time;
 
-        // 呼吸缩放（威严感）
-        const breath = 1 + Math.sin(this._time * 1.5) * 0.03;
+        // ===== 整体摆动：左右摇摆幅度加大，配合横向微位移，营造龙身蜿蜒感 =====
+        const sway = Math.sin(t * 1.5) * 0.08;
+        ctx.rotate(sway);
+        // 沿垂直于游进方向的轻微浮动位移（与摆动同频，增强流动感）
+        ctx.translate(Math.sin(t * 1.5) * this.size * 0.02, Math.sin(t * 1.5 + Math.PI / 2) * this.size * 0.03);
+
+        // 呼吸缩放（略微增强，威严又不失优雅）
+        const breath = 1 + Math.sin(t * 1.2) * 0.04;
         ctx.scale(breath, breath);
 
         // ===== 外层金色光晕（减弱透明度，避免龙身边缘模糊）=====
-        const glowPulse = Math.sin(this._time * 2.5) * 0.15 + 0.85;
+        const glowPulse = Math.sin(t * 2.5) * 0.15 + 0.85;
         ctx.globalCompositeOperation = 'lighter';
         const glowRadius = this.size * 2.5;
         const glowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, glowRadius);
@@ -301,25 +322,10 @@ export class BossDragonKing extends Fish {
         ctx.beginPath();
         ctx.arc(0, 0, glowRadius, 0, Math.PI * 2);
         ctx.fill();
-
-        // ===== 龙鳞闪光粒子（随机金光闪烁）=====
-        if (Math.random() < 0.15) {
-            const sparkX = Utils.random(-this.size * 0.6, this.size * 0.4);
-            const sparkY = Utils.random(-this.size * 0.3, this.size * 0.3);
-            const sparkSize = Utils.random(3, 8);
-            const sparkGrad = ctx.createRadialGradient(sparkX, sparkY, 0, sparkX, sparkY, sparkSize);
-            sparkGrad.addColorStop(0, 'rgba(255, 255, 200, 0.9)');
-            sparkGrad.addColorStop(0.5, 'rgba(255, 215, 0, 0.5)');
-            sparkGrad.addColorStop(1, 'rgba(255, 215, 0, 0)');
-            ctx.fillStyle = sparkGrad;
-            ctx.beginPath();
-            ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
-            ctx.fill();
-        }
         ctx.globalCompositeOperation = 'source-over';
 
         // ===== 绘制金龙图片（仅绘制一次，干净清晰）=====
-        // 完整龙身需要更大显示尺寸，使用 config.imageScale（缺省2.2）替代硬编码1.8
+        // 完整 S 形龙身使用 config.imageScale（缺省2.2），fishConfig 中 dragonking=2.8
         const bossImageScale = (this.config && this.config.imageScale) ? this.config.imageScale : 2.2;
         const imgW = this.size * bossImageScale;
         const ratio = (img.naturalWidth > 0 && img.naturalHeight > 0)
@@ -327,7 +333,117 @@ export class BossDragonKing extends Fish {
         const imgH = imgW * ratio;
         ctx.drawImage(img, -imgW / 2, -imgH / 2, imgW, imgH);
 
+        // ===== 龙鳞闪光粒子（对象池管理，同屏上限15，带生命周期淡入淡出）=====
+        this._updateAndRenderSparkles(ctx, t);
+
+        // ===== 水中光影流动（caustics 光斑扫过龙身）=====
+        ctx.globalCompositeOperation = 'lighter';
+        const causticX = Math.sin(t * 0.5) * this.size * 0.3;
+        const causticY = Math.cos(t * 0.7) * this.size * 0.15;
+        const causticR = this.size * 0.9;
+        const causticGrad = ctx.createRadialGradient(causticX, causticY, 0, causticX, causticY, causticR);
+        causticGrad.addColorStop(0, 'rgba(190, 225, 255, 0.08)');
+        causticGrad.addColorStop(0.5, 'rgba(160, 210, 255, 0.04)');
+        causticGrad.addColorStop(1, 'rgba(160, 210, 255, 0)');
+        ctx.fillStyle = causticGrad;
+        ctx.beginPath();
+        ctx.arc(causticX, causticY, causticR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalCompositeOperation = 'source-over';
+
+        // ===== 飘动龙须（从龙头向后飘逸，金色半透明 + 末端发光）=====
+        this._renderImageWhiskers(ctx, t);
+
         // ===== 内层边缘金光（已移除：叠加发光会导致图片模糊）=====
+    }
+
+    /**
+     * 龙鳞闪光粒子：对象池 + 生命周期淡入淡出，同屏不超过 15 个
+     */
+    _updateAndRenderSparkles(ctx, t) {
+        // 清理过期粒子
+        const alive = [];
+        for (const s of this._sparkles) {
+            if (t - s.birth < s.life) alive.push(s);
+        }
+        this._sparkles = alive;
+
+        // 按概率补充新粒子（偏向龙身区域）
+        if (Math.random() < 0.25 && this._sparkles.length < 15) {
+            const roll = Math.random();
+            let color;
+            if (roll < 0.70) color = '255,215,0';        // 金色 #FFD700
+            else if (roll < 0.85) color = '255,255,205';  // 白金 #FFFFCC
+            else color = '255,165,0';                    // 橙金 #FFA500
+            this._sparkles.push({
+                x: Utils.random(-this.size * 1.0, this.size * 0.8),
+                y: Utils.random(-this.size * 0.4, this.size * 0.4),
+                size: Utils.random(3, 12),
+                color,
+                life: Utils.random(0.4, 0.9),
+                birth: t
+            });
+        }
+
+        // 绘制（lighter 叠加，透明度按 sin(pi*t) 淡入淡出）
+        ctx.globalCompositeOperation = 'lighter';
+        for (const s of this._sparkles) {
+            const age = t - s.birth;
+            const alpha = Math.sin(Math.PI * age / s.life);
+            if (alpha <= 0.02) continue;
+            const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size);
+            g.addColorStop(0, `rgba(255, 255, 220, ${0.9 * alpha})`);
+            g.addColorStop(0.5, `rgba(${s.color}, ${0.5 * alpha})`);
+            g.addColorStop(1, `rgba(${s.color}, 0)`);
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalCompositeOperation = 'source-over';
+    }
+
+    /**
+     * 图片模式下的飘动龙须：从龙头位置向后拖出两条波动曲线，末端发光
+     */
+    _renderImageWhiskers(ctx, t) {
+        const headX = this.size * 0.62;
+        ctx.save();
+        ctx.lineCap = 'round';
+        for (const side of [-1, 1]) {
+            const startY = side * this.size * 0.08;
+            // 三段贝塞尔：向后（-x）飘逸，随时间上下波动
+            const sway1 = Math.sin(t * 2 + side) * this.size * 0.06;
+            const sway2 = Math.sin(t * 1.6 + side + 1) * this.size * 0.10;
+            const endX = headX - this.size * 0.55;
+            const endY = startY + side * this.size * 0.12 + sway2;
+
+            ctx.strokeStyle = 'rgba(255, 215, 0, 0.45)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(headX, startY);
+            ctx.quadraticCurveTo(
+                headX - this.size * 0.18, startY + sway1,
+                headX - this.size * 0.36, startY + sway1 * 1.5
+            );
+            ctx.quadraticCurveTo(
+                headX - this.size * 0.46, startY + sway1 * 1.5,
+                endX, endY
+            );
+            ctx.stroke();
+
+            // 须尖发光
+            ctx.globalCompositeOperation = 'lighter';
+            const tipGlow = ctx.createRadialGradient(endX, endY, 0, endX, endY, 10);
+            tipGlow.addColorStop(0, 'rgba(255, 230, 150, 0.8)');
+            tipGlow.addColorStop(1, 'rgba(255, 215, 0, 0)');
+            ctx.fillStyle = tipGlow;
+            ctx.beginPath();
+            ctx.arc(endX, endY, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        ctx.restore();
     }
 
     _renderDragonBody(ctx, bones, cfg) {
